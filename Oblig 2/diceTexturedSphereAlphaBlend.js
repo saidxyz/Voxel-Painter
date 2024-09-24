@@ -1,8 +1,8 @@
-import {WebGLCanvas} from '../../base/helpers/WebGLCanvas.js';
-import {WebGLShader} from '../../base/helpers/WebGLShader.js';
-import {Camera} from '../../base/helpers/Camera.js';
-import {ImageLoader} from '../../base/helpers/ImageLoader.js';
-import {isPowerOfTwo1} from '../../base/lib/utility-functions.js';
+import {WebGLCanvas} from '../base/helpers/WebGLCanvas.js';
+import {WebGLShader} from '../base/helpers/WebGLShader.js';
+import {Camera} from '../base/helpers/Camera.js';
+import {ImageLoader} from '../base/helpers/ImageLoader.js';
+import {isPowerOfTwo1} from '../base/lib/utility-functions.js';
 /**
  * Et WebGL-program som tegner en enkel torus.
  */
