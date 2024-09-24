@@ -163,15 +163,15 @@ function draw(currentTime, renderInfo, camera) {
 	// Tegner koordinatsystemet
 	coord(renderInfo, camera, modelMatrix);
 	// Tegner Dice
-	//Dice(renderInfo, camera, modelMatrix);
+	drawTransparentObjects(renderInfo, camera);
+
+	Dice(renderInfo, camera, modelMatrix)
 
 	renderInfo.gl.enable(renderInfo.gl.BLEND);
 	renderInfo.gl.blendFunc(renderInfo.gl.SRC_ALPHA, renderInfo.gl.ONE_MINUS_SRC_ALPHA);
 	//* Slår AV depthMask (endrer dermed ikke DEPTH-BUFFER):
 	renderInfo.gl.depthMask(false);
 	//* Tegner:
-	drawTransparentObjects(renderInfo, camera);
-	//* Slår PÅ depthMask (dybdebufferet oppdateres):
 	renderInfo.gl.depthMask(true);
 }
 
@@ -511,11 +511,36 @@ function drawDice(renderInfo, camera, modelMatrix) {
 // Dice call
 function Dice(renderInfo, camera, modelMatrix) {
 
+	// +X
 	modelMatrix.setIdentity();
+	modelMatrix.translate(2,1, 0);
 	drawDice(renderInfo, camera, modelMatrix);
 
-}
+	// -X
+	modelMatrix.setIdentity();
+	modelMatrix.translate(-2,1, 0);
+	drawDice(renderInfo, camera, modelMatrix);
 
+	// -Z
+	modelMatrix.setIdentity();
+	modelMatrix.translate(0,1, 2);
+	drawDice(renderInfo, camera, modelMatrix);
+
+	// +Z
+	modelMatrix.setIdentity();
+	modelMatrix.translate(0,1, -2);
+	drawDice(renderInfo, camera, modelMatrix);
+
+	// +Y
+	modelMatrix.setIdentity();
+	modelMatrix.translate(0,3, 0);
+	drawDice(renderInfo, camera, modelMatrix);
+
+	// -Y
+	modelMatrix.setIdentity();
+	modelMatrix.translate(0,-1, 0);
+	drawDice(renderInfo, camera, modelMatrix);
+}
 
 function clearCanvas(gl) {
 	gl.clearColor(0.9, 0.9, 0.9, 1);  // Clear screen farge.
