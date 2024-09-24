@@ -595,7 +595,7 @@ function draw(currentTime, renderInfo, camera) {
 	clearCanvas(renderInfo.gl);
 	let modelMatrix = new Matrix4();
 	// Tegner koordinatsystemet
-	//coord(renderInfo, camera, modelMatrix);
+	coord(renderInfo, camera, modelMatrix);
 	// Tegner Transparent Objekt
 	drawTransparentObjects(renderInfo, camera);
 	// Tegner Dice
