@@ -3,9 +3,6 @@ import {WebGLShader} from '../base/helpers/WebGLShader.js';
 import {Camera} from '../base/helpers/Camera.js';
 import {ImageLoader} from '../base/helpers/ImageLoader.js';
 import {isPowerOfTwo1} from '../base/lib/utility-functions.js';
-/**
- * Et WebGL-program som tegner en enkel torus.
- */
 
 export function main() {
 	// Oppretter et webGLCanvas for WebGL-tegning:
@@ -26,7 +23,6 @@ export function main() {
 					textureShader: initTextureShaders(webGLCanvas.gl),
 					coordBuffers: initCoordBuffers(webGLCanvas.gl),
 					diceBuffers: initDiceTextureAndBuffers(webGLCanvas.gl, textureImage),
-					sphereBuffers: initSphereBuffers(webGLCanvas.gl),
 					currentlyPressedKeys: [],
 					lastTime: 0,
 					fpsInfo: {  // Brukes til å beregne og vise FPS (Frames Per Seconds):
@@ -45,9 +41,65 @@ export function main() {
 	}, textureUrls);
 }
 
-/**
- * Knytter tastatur-evnents til eventfunksjoner.
- */
+function connectPositionAttribute(gl, baseShader, positionBuffer) {
+	const numComponents = 3;
+	const type = gl.FLOAT;
+	const normalize = false;
+	const stride = 0;
+	const offset = 0;
+	gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+	gl.vertexAttribPointer(
+		baseShader.attribLocations.vertexPosition,
+		numComponents,
+		type,
+		normalize,
+		stride,
+		offset);
+	gl.enableVertexAttribArray(baseShader.attribLocations.vertexPosition);
+}
+
+function connectTextureAttribute(gl, textureShader, textureBuffer, textureObject) {
+	const numComponents = 2;    //NB!
+	const type = gl.FLOAT;
+	const normalize = false;
+	const stride = 0;
+	const offset = 0;
+	//Bind til teksturkoordinatparameter i shader:
+	gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
+	gl.vertexAttribPointer(
+		textureShader.attribLocations.vertexTextureCoordinate,
+		numComponents,
+		type,
+		normalize,
+		stride,
+		offset);
+	gl.enableVertexAttribArray(textureShader.attribLocations.vertexTextureCoordinate);
+
+	//Aktiver teksturenhet (0):
+	gl.activeTexture(gl.TEXTURE0);
+	gl.bindTexture(gl.TEXTURE_2D, textureObject);
+	//Send inn verdi som indikerer hvilken teksturenhet som skal brukes (her 0):
+	let samplerLoc = gl.getUniformLocation(textureShader.program, textureShader.uniformLocations.sampler);
+	gl.uniform1i(samplerLoc, 0);
+}
+
+function connectColorAttribute(gl, baseShader, colorBuffer) {
+	const numComponents = 4;
+	const type = gl.FLOAT;
+	const normalize = false;
+	const stride = 0;
+	const offset = 0;
+	gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+	gl.vertexAttribPointer(
+		baseShader.attribLocations.vertexColor,
+		numComponents,
+		type,
+		normalize,
+		stride,
+		offset);
+	gl.enableVertexAttribArray(baseShader.attribLocations.vertexColor);
+}
+
 function initKeyPress(renderInfo) {
 	document.addEventListener('keyup', (event) => {
 		renderInfo.currentlyPressedKeys[event.code] = false;
@@ -103,13 +155,56 @@ function initTextureShaders(gl) {
 	};
 }
 
-/**
- * Oppretter verteksbuffer for koordinatsystemet.
- * 6 vertekser, 2 for hver akse.
- * Tegnes vha. gl.LINES
- * Et posisjonsbuffer og et fargebuffer.
- * MERK: Må være likt antall posisjoner og farger.
- */
+// Everything
+function draw(currentTime, renderInfo, camera) {
+	clearCanvas(renderInfo.gl);
+	let modelMatrix = new Matrix4();
+
+	// Tegner koordinatsystemet
+	coord(renderInfo, camera, modelMatrix);
+	// Tegner Dice
+	//Dice(renderInfo, camera, modelMatrix);
+
+	renderInfo.gl.enable(renderInfo.gl.BLEND);
+	renderInfo.gl.blendFunc(renderInfo.gl.SRC_ALPHA, renderInfo.gl.ONE_MINUS_SRC_ALPHA);
+	//* Slår AV depthMask (endrer dermed ikke DEPTH-BUFFER):
+	renderInfo.gl.depthMask(false);
+	//* Tegner:
+	drawTransparentObjects(renderInfo, camera);
+	//* Slår PÅ depthMask (dybdebufferet oppdateres):
+	renderInfo.gl.depthMask(true);
+}
+
+// Transparency
+function drawTransparentObjects(renderInfo, camera) {
+	let modelMatrix = new Matrix4();
+
+	// Liste med ønskede posisjoner for transparente objekter:
+	let positions = [];
+	positions.push(
+		{x: 0, y: 1, z: 0},		//Kuben
+		{x: 0, y: 0, z: -10},	//Sfæren/kula
+	);
+	// Liste som inneholder kubenes posisjon (pos), avstand til kamera (dist) og hvilken draw-funksjon som skal kalles (func):
+	let objectsToDraw = [];
+	objectsToDraw.push(
+		{pos: positions[0], dist: distanceFromCamera(camera, positions[0]), func: (renderInfo, camera, modelMatrix)=> drawDice(renderInfo, camera, modelMatrix)}
+	);
+
+	// Sorterer transparente objekter basert på avstanden fra kamera.
+	// Merk: Bruker sentrum av objektet, som ikke nødvendigvis alltid blir helt korrekt.
+	objectsToDraw.sort((distFromCam1, distFromCam2) => compare(distFromCam1.dist, distFromCam2.dist));
+
+	// Tegner de sorterte objektene i rekkefølge, innerst til ytterst:
+	for (let i = 0; i < objectsToDraw.length; i++) {
+		modelMatrix.setIdentity();
+		modelMatrix.translate(objectsToDraw[i].pos.x, objectsToDraw[i].pos.y, objectsToDraw[i].pos.z);
+		//Merk bruk av func(...)!
+		objectsToDraw[i].func(renderInfo, camera, modelMatrix);
+	}
+}
+
+// Coord setup
 function initCoordBuffers(gl) {
 	const extent =  100;
 
@@ -147,7 +242,34 @@ function initCoordBuffers(gl) {
 		vertexCount: positions.length/3
 	};
 }
+// Coord funksjonen
+function drawCoord(renderInfo, camera) {
 
+	renderInfo.gl.useProgram(renderInfo.baseShader.program);
+
+	let modelMatrix = new Matrix4();
+	let viewMatrix = new Matrix4(camera.viewMatrix);
+	let modelviewMatrix = viewMatrix.multiply(modelMatrix);
+
+	renderInfo.gl.uniformMatrix4fv(renderInfo.baseShader.uniformLocations.modelViewMatrix, false, modelviewMatrix.elements);
+	renderInfo.gl.uniformMatrix4fv(renderInfo.baseShader.uniformLocations.projectionMatrix, false, camera.projectionMatrix.elements);
+
+	connectPositionAttribute(renderInfo.gl, renderInfo.baseShader, renderInfo.coordBuffers.position);
+	connectColorAttribute(renderInfo.gl, renderInfo.baseShader, renderInfo.coordBuffers.color);
+
+	renderInfo.gl.uniformMatrix4fv(renderInfo.baseShader.uniformLocations.modelViewMatrix, false, modelviewMatrix.elements);
+	renderInfo.gl.uniformMatrix4fv(renderInfo.baseShader.uniformLocations.projectionMatrix, false, camera.projectionMatrix.elements);
+
+	renderInfo.gl.drawArrays(renderInfo.gl.LINES, 0, renderInfo.coordBuffers.vertexCount);
+}
+// Coord call
+function coord(renderInfo, camera, modelMatrix) {
+
+	modelMatrix.setIdentity();
+	drawCoord(renderInfo, camera, modelMatrix);
+}
+
+// Dice setup
 function initDiceTextureAndBuffers(gl, textureImage) {
 	let positions = [
 		//Forsiden (pos):
@@ -360,156 +482,41 @@ function initDiceTextureAndBuffers(gl, textureImage) {
 		vertexCount: positions.length/3,
 	};
 }
+// Dice funksjonen
+function drawDice(renderInfo, camera, modelMatrix) {
 
-function initSphereBuffers(gl) {
-	let positions = [];
-	let colors = [];
-	let indices = [];
+	renderInfo.gl.useProgram(renderInfo.textureShader.program);
 
-	// Basert på kode fra: http://learningwebgl.com/blog/?p=1253
-	let radius = 2.5;
-	let r=0.2,g=0.2,b=0.5,a=0.7;
-	let latitudeBands = 30;     //latitude: parallellt med ekvator.
-	let longitudeBands = 30;    //longitude: går fra nord- til sydpolen.
+	let viewMatrix = new Matrix4(camera.viewMatrix);
+	let modelviewMatrix = viewMatrix.multiply(modelMatrix);
 
-	//Genererer vertekser:
-	for (let latNumber = 0; latNumber <= latitudeBands; latNumber++) {
-		let theta = latNumber * Math.PI / latitudeBands;
-		let sinTheta = Math.sin(theta);
-		let cosTheta = Math.cos(theta);
+	connectPositionAttribute(renderInfo.gl, renderInfo.textureShader, renderInfo.diceBuffers.position);
+	connectColorAttribute(renderInfo.gl, renderInfo.textureShader, renderInfo.diceBuffers.color);
+	connectTextureAttribute(renderInfo.gl, renderInfo.textureShader, renderInfo.diceBuffers.texture, renderInfo.diceBuffers.textureObject);
 
-		for (let longNumber = 0; longNumber <= longitudeBands; longNumber++) {
-			let phi = longNumber * 2 * Math.PI / longitudeBands;
-			let sinPhi = Math.sin(phi);
-			let cosPhi = Math.cos(phi);
+	renderInfo.gl.uniformMatrix4fv(renderInfo.textureShader.uniformLocations.modelViewMatrix, false, modelviewMatrix.elements);
+	renderInfo.gl.uniformMatrix4fv(renderInfo.textureShader.uniformLocations.projectionMatrix, false, camera.projectionMatrix.elements);
 
-			let x = cosPhi * sinTheta;
-			let y = cosTheta;
-			let z = sinPhi * sinTheta;
+	// Bruker culling for korrekt blending:
+	renderInfo.gl.frontFace(renderInfo.gl.CCW);	    	// Angir vertekser CCW.
+	renderInfo.gl.enable(renderInfo.gl.CULL_FACE);	    // Aktiverer culling.
 
-			positions.push(radius * x);
-			positions.push(radius * y);
-			positions.push(radius * z);
-
-			colors.push(r);
-			colors.push(g);
-			colors.push(b);
-			colors.push(a);
-		}
-	}
-
-	//Genererer indeksdata for å knytte sammen verteksene:
-	for (let latNumber = 0; latNumber < latitudeBands; latNumber++) {
-		for (let longNumber = 0; longNumber < longitudeBands; longNumber++) {
-			let first = (latNumber * (longitudeBands + 1)) + longNumber;
-			let second = first + longitudeBands + 1;
-			indices.push(first);
-			indices.push(second);
-			indices.push(first + 1);
-
-			indices.push(second);
-			indices.push(second + 1);
-			indices.push(first + 1);
-		}
-	}
-
-	const positionBuffer = gl.createBuffer();
-	gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
-	gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-	const colorBuffer = gl.createBuffer();
-	gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
-	gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-	//Indeksbuffer: oppretter, binder og skriver data til bufret:
-	const indexBuffer = gl.createBuffer();
-	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
-
-	return  {
-		position: positionBuffer,
-		color: colorBuffer,
-		index: indexBuffer,
-		vertexCount: positions.length/3,
-		indexCount: indices.length
-	};
+	//Tegner baksidene først:
+	renderInfo.gl.cullFace(renderInfo.gl.FRONT);	    	// Skjuler forsider.
+	renderInfo.gl.drawArrays(renderInfo.gl.TRIANGLES, 0, renderInfo.diceBuffers.vertexCount);
+	//Tegner deretter forsidene:
+	renderInfo.gl.cullFace(renderInfo.gl.BACK);	    	    // Skjuler baksider.
+	renderInfo.gl.drawArrays(renderInfo.gl.TRIANGLES, 0, renderInfo.diceBuffers.vertexCount);
 }
-/**
- * Aktiverer position-bufferet.
- * Kalles fra draw()
- */
-function connectPositionAttribute(gl, baseShader, positionBuffer) {
-	const numComponents = 3;
-	const type = gl.FLOAT;
-	const normalize = false;
-	const stride = 0;
-	const offset = 0;
-	gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-	gl.vertexAttribPointer(
-		baseShader.attribLocations.vertexPosition,
-		numComponents,
-		type,
-		normalize,
-		stride,
-		offset);
-	gl.enableVertexAttribArray(baseShader.attribLocations.vertexPosition);
+// Dice call
+function Dice(renderInfo, camera, modelMatrix) {
+
+	modelMatrix.setIdentity();
+	drawDice(renderInfo, camera, modelMatrix);
+
 }
 
-/**
- * Kopler til og aktiverer teksturkoordinat-bufferet.
- */
-function connectTextureAttribute(gl, textureShader, textureBuffer, textureObject) {
-	const numComponents = 2;    //NB!
-	const type = gl.FLOAT;
-	const normalize = false;
-	const stride = 0;
-	const offset = 0;
-	//Bind til teksturkoordinatparameter i shader:
-	gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
-	gl.vertexAttribPointer(
-		textureShader.attribLocations.vertexTextureCoordinate,
-		numComponents,
-		type,
-		normalize,
-		stride,
-		offset);
-	gl.enableVertexAttribArray(textureShader.attribLocations.vertexTextureCoordinate);
 
-	//Aktiver teksturenhet (0):
-	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, textureObject);
-	//Send inn verdi som indikerer hvilken teksturenhet som skal brukes (her 0):
-	let samplerLoc = gl.getUniformLocation(textureShader.program, textureShader.uniformLocations.sampler);
-	gl.uniform1i(samplerLoc, 0);
-}
-
-/**
- * Aktiverer color-bufferet.
- * Kalles fra draw()
- */
-function connectColorAttribute(gl, baseShader, colorBuffer) {
-	const numComponents = 4;
-	const type = gl.FLOAT;
-	const normalize = false;
-	const stride = 0;
-	const offset = 0;
-	gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-	gl.vertexAttribPointer(
-		baseShader.attribLocations.vertexColor,
-		numComponents,
-		type,
-		normalize,
-		stride,
-		offset);
-	gl.enableVertexAttribArray(baseShader.attribLocations.vertexColor);
-}
-
-/**
- * Klargjør canvaset.
- * Kalles fra draw()
- */
 function clearCanvas(gl) {
 	gl.clearColor(0.9, 0.9, 0.9, 1);  // Clear screen farge.
 	gl.clearDepth(1.0);
@@ -530,11 +537,6 @@ function animate(currentTime, renderInfo, camera) {
 	draw(currentTime, renderInfo, camera);
 }
 
-/**
- * Beregner forløpt tid siden siste kall.
- * @param currentTime
- * @param renderInfo
- */
 function getElapsed(currentTime, renderInfo) {
 	let elapsed = 0.0;
 	if (renderInfo.lastTime !== 0.0)	// Først gang er lastTime = 0.0.
@@ -543,11 +545,6 @@ function getElapsed(currentTime, renderInfo) {
 	return elapsed;
 }
 
-/**
- * Beregner og viser FPS.
- * @param currentTime
- * @param renderInfo
- */
 function calculateFps(currentTime, fpsInfo) {
 	if (!currentTime) currentTime = 0;
 	// Sjekker om  ET sekund har forløpt...
@@ -563,63 +560,6 @@ function calculateFps(currentTime, fpsInfo) {
 	fpsInfo.frameCount++;
 }
 
-/**
- * Tegner!
- */
-function draw(currentTime, renderInfo, camera) {
-	clearCanvas(renderInfo.gl);
-
-	// Tegner koordinatsystemet:
-	drawCoord(renderInfo, camera);
-
-	//STEG 1: Tegner alle UGJENNOMSIKTIGE (OPAQUE) objekter først:
-	//* ... ingenting å tegne her.
-
-	//STEG 2: Tegner alle GJENNOMSIKTIGE objekter, i rekkefølgen innerst til ytterst:
-	//* Aktiverer blending:
-	renderInfo.gl.enable(renderInfo.gl.BLEND);
-	renderInfo.gl.blendFunc(renderInfo.gl.SRC_ALPHA, renderInfo.gl.ONE_MINUS_SRC_ALPHA);
-	//* Slår AV depthMask (endrer dermed ikke DEPTH-BUFFER):
-	renderInfo.gl.depthMask(false);
-	//* Tegner:
-	drawTransparentObjects(renderInfo, camera);
-	//* Slår PÅ depthMask (dybdebufferet oppdateres):
-	renderInfo.gl.depthMask(true);
-}
-
-function drawTransparentObjects(renderInfo, camera) {
-	let modelMatrix = new Matrix4();
-
-	// Liste med ønskede posisjoner for transparente objekter:
-	let positions = [];
-	positions.push(
-		{x: 0, y: 0, z: 0},		//Kuben
-		{x: 0, y: 0, z: -10},	//Sfæren/kula
-	);
-	// Liste som inneholder kubenes posisjon (pos), avstand til kamera (dist) og hvilken draw-funksjon som skal kalles (func):
-	let objectsToDraw = [];
-	objectsToDraw.push(
-		{pos: positions[0], dist: distanceFromCamera(camera, positions[0]), func: (renderInfo, camera, modelMatrix)=> drawDice(renderInfo, camera, modelMatrix)},
-		{pos: positions[1], dist: distanceFromCamera(camera, positions[1]), func: (renderInfo, camera, modelMatrix) => drawSphere(renderInfo, camera, modelMatrix)}
-	);
-
-	// Sorterer transparente objekter basert på avstanden fra kamera.
-	// Merk: Bruker sentrum av objektet, som ikke nødvendigvis alltid blir helt korrekt.
-	objectsToDraw.sort((distFromCam1, distFromCam2) => compare(distFromCam1.dist, distFromCam2.dist));
-
-	// Tegner de sorterte objektene i rekkefølge, innerst til ytterst:
-	for (let i = 0; i < objectsToDraw.length; i++) {
-		modelMatrix.setIdentity();
-		modelMatrix.translate(objectsToDraw[i].pos.x, objectsToDraw[i].pos.y, objectsToDraw[i].pos.z);
-		//Merk bruk av func(...)!
-		objectsToDraw[i].func(renderInfo, camera, modelMatrix);
-	}
-}
-
-/**
- * Funksjonen sammenlikner to nærliggende verdier i arrayet som sorteres.
- * Returnerer 1, -1 eller 0 avhengig av sammenlikningen.
- */
 function compare( dist1, dist2 ) {
 	if (dist1 < dist2 ){
 		return 1;
@@ -630,9 +570,6 @@ function compare( dist1, dist2 ) {
 	return 0;
 }
 
-/**
- * Merk: ** betyr eksponent. Eks. 2 ** 3 = 2 * 2 * 2 = 8
- */
 function distanceFromCamera(camera, positions) {
 	let x = positions.x;
 	let y = positions.y;
@@ -640,72 +577,3 @@ function distanceFromCamera(camera, positions) {
 	return Math.sqrt((camera.camPosX - x) ** 2 + (camera.camPosY - y) ** 2 + (camera.camPosZ - z) ** 2);
 }
 
-function drawDice(renderInfo, camera, modelMatrix) {
-	renderInfo.gl.useProgram(renderInfo.textureShader.program);
-	// Kople posisjon og farge-attributtene til tilhørende buffer:
-	connectPositionAttribute(renderInfo.gl, renderInfo.textureShader, renderInfo.diceBuffers.position);
-	connectColorAttribute(renderInfo.gl, renderInfo.textureShader, renderInfo.diceBuffers.color);
-	connectTextureAttribute(renderInfo.gl, renderInfo.textureShader, renderInfo.diceBuffers.texture, renderInfo.diceBuffers.textureObject);
-
-	// Lager en kopi for å ikke påvirke kameramatrisene:
-	let viewMatrix = new Matrix4(camera.viewMatrix);
-	let modelviewMatrix = viewMatrix.multiply(modelMatrix); // NB! rekkefølge!
-	renderInfo.gl.uniformMatrix4fv(renderInfo.textureShader.uniformLocations.modelViewMatrix, false, modelviewMatrix.elements);
-	renderInfo.gl.uniformMatrix4fv(renderInfo.textureShader.uniformLocations.projectionMatrix, false, camera.projectionMatrix.elements);
-
-	// Bruker culling for korrekt blending:
-	renderInfo.gl.frontFace(renderInfo.gl.CCW);	    	// Angir vertekser CCW.
-	renderInfo.gl.enable(renderInfo.gl.CULL_FACE);	    // Aktiverer culling.
-
-	//Tegner baksidene først:
-	renderInfo.gl.cullFace(renderInfo.gl.FRONT);	    	// Skjuler forsider.
-	renderInfo.gl.drawArrays(renderInfo.gl.TRIANGLES, 0, renderInfo.diceBuffers.vertexCount);
-	//Tegner deretter forsidene:
-	renderInfo.gl.cullFace(renderInfo.gl.BACK);	    	    // Skjuler baksider.
-	renderInfo.gl.drawArrays(renderInfo.gl.TRIANGLES, 0, renderInfo.diceBuffers.vertexCount);
-}
-
-function drawSphere(renderInfo, camera, modelMatrix) {
-	// Aktiver shader:
-	renderInfo.gl.useProgram(renderInfo.baseShader.program);
-
-	// Kople posisjon og farge-attributtene til tilhørende buffer:
-	connectPositionAttribute(renderInfo.gl, renderInfo.baseShader, renderInfo.sphereBuffers.position);
-	connectColorAttribute(renderInfo.gl, renderInfo.baseShader, renderInfo.sphereBuffers.color);
-
-	// Lager en kopi for å ikke påvirke kameramatrisene:
-	let viewMatrix = new Matrix4(camera.viewMatrix);
-	let modelviewMatrix = viewMatrix.multiply(modelMatrix); // NB! rekkefølge!
-	// Send kameramatrisene til shaderen:
-	renderInfo.gl.uniformMatrix4fv(renderInfo.baseShader.uniformLocations.modelViewMatrix, false, modelviewMatrix.elements);
-	renderInfo.gl.uniformMatrix4fv(renderInfo.baseShader.uniformLocations.projectionMatrix, false, camera.projectionMatrix.elements);
-
-	// Bruker culling for korrekt blending:
-	renderInfo.gl.frontFace(renderInfo.gl.CW);	    	// Angir vertekser CW.
-	renderInfo.gl.enable(renderInfo.gl.CULL_FACE);	    // Aktiverer culling.
-
-	//Tegner baksidene først:
-	renderInfo.gl.cullFace(renderInfo.gl.FRONT);	    	// Skjuler forsider.
-	renderInfo.gl.drawElements(renderInfo.gl.TRIANGLES, renderInfo.sphereBuffers.indexCount, renderInfo.gl.UNSIGNED_SHORT, 0);
-	//Tegner deretter forsidene:
-	renderInfo.gl.cullFace(renderInfo.gl.BACK);	    	    // Skjuler baksider.
-	renderInfo.gl.drawElements(renderInfo.gl.TRIANGLES, renderInfo.sphereBuffers.indexCount, renderInfo.gl.UNSIGNED_SHORT, 0);
-}
-
-function drawCoord(renderInfo, camera) {
-	renderInfo.gl.useProgram(renderInfo.baseShader.program);
-	// Kople posisjon og farge-attributtene til tilhørende buffer:
-	connectPositionAttribute(renderInfo.gl, renderInfo.baseShader, renderInfo.coordBuffers.position);
-	connectColorAttribute(renderInfo.gl, renderInfo.baseShader, renderInfo.coordBuffers.color);
-
-	let modelMatrix = new Matrix4();
-	modelMatrix.setIdentity();
-	// Lager en kopi for å ikke påvirke kameramatrisene:
-	let viewMatrix = new Matrix4(camera.viewMatrix);
-	let modelviewMatrix = viewMatrix.multiply(modelMatrix); // NB! rekkefølge!
-	// Send kameramatrisene til shaderen:
-	renderInfo.gl.uniformMatrix4fv(renderInfo.baseShader.uniformLocations.modelViewMatrix, false, modelviewMatrix.elements);
-	renderInfo.gl.uniformMatrix4fv(renderInfo.baseShader.uniformLocations.projectionMatrix, false, camera.projectionMatrix.elements);
-	// Tegn coord:
-	renderInfo.gl.drawArrays(renderInfo.gl.LINES, 0, renderInfo.coordBuffers.vertexCount);
-}
