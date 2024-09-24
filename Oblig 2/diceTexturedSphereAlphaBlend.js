@@ -23,7 +23,7 @@ export function main() {
 					textureShader: initTextureShaders(webGLCanvas.gl),
 					coordBuffers: initCoordBuffers(webGLCanvas.gl),
 					diceBuffers: initDiceTextureAndBuffers(webGLCanvas.gl, textureImage),
-					gridBuffers: initGridBuffers(webGLCanvas.gl, 10),
+					gridBuffers: initGridBuffers(webGLCanvas.gl, 20),
 					currentlyPressedKeys: [],
 					lastTime: 0,
 					fpsInfo: {  // Brukes til å beregne og vise FPS (Frames Per Seconds):
@@ -37,6 +37,11 @@ export function main() {
 				camera.camPosX = 5;
 				camera.camPosY = 8;
 				camera.camPosZ = 5;
+				document.getElementById("reset").onclick = ()=>{
+					camera.camPosX = 5;
+					camera.camPosY = 8;
+					camera.camPosZ = 5;
+				}
 				animate( 0, renderInfo, camera);
 			}
 	}, textureUrls);
@@ -187,10 +192,10 @@ function drawTransparentObjects(renderInfo, camera) {
 
 // Grid setup
 function initGridBuffers(gl, squares) {
-	const extent =  squares;
+	const extent =  squares*2;
 	var grids = [];
 	var color = [];
-	for (var i = -squares; i < squares+1; i++) {
+	for (var i = -extent+1; i < extent; i+=2) {
 		grids.push(
 			-extent, 0, i,
 			extent, 0, i,
@@ -595,7 +600,7 @@ function draw(currentTime, renderInfo, camera) {
 	clearCanvas(renderInfo.gl);
 	let modelMatrix = new Matrix4();
 	// Tegner koordinatsystemet
-	//coord(renderInfo, camera, modelMatrix);
+	coord(renderInfo, camera, modelMatrix);
 	// Tegner Transparent Objekt
 	drawTransparentObjects(renderInfo, camera);
 	// Tegner Dice
