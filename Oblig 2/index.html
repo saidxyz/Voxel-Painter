@@ -6,6 +6,21 @@
     <link rel="stylesheet" href="../base/webgl.css" type="text/css">
     <script src="../base/lib/cuon-matrix.js"></script>
     <script src="../base/lib/gl-matrix.js"></script>
+    <style>
+        html{overflow: hidden}
+        .grid-container {
+            display: grid;
+            width: 12.5%;
+            grid-template-columns: auto auto auto;
+            gap: 5px;
+        }
+        .grid-item {
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.8);
+            font-size: 30px;
+            text-align: center;
+        }
+    </style>
 </head>
 
 <body>
@@ -13,7 +28,38 @@
         <h2>WebGL Textured Dice</h2>
         FPS: <span id="fps">--</span><br>
         WASD Kamerastyring.<br>
-        VB Zoom<br>
+        VB Zoom<br><br>
+        <b>Styre spiller</b>
+        <div class="grid-container">
+            <div class="grid-item" style="visibility:hidden"></div>
+            <div id="zdec" class="grid-item">-Z</div>
+            <div class="grid-item" style="visibility:hidden"></div>
+            <div id="xdec" class="grid-item">-X</div>
+            <div id="build" class="grid-item">+</div>
+            <div id="xinc" class="grid-item">+X</div>
+            <div id="yinc" class="grid-item">+Y</div>
+            <div id="zinc" class="grid-item">+Z</div>
+            <div id="ydec" class="grid-item">-Y</div>
+        </div>
+        <br>
+        <b>Tegn ved flytt</b>
+        <br>
+        <input type="checkbox" id="draw" style="width:50px;height:50px;" checked>
+        <br>
+        <b>Bruk tilfeldige farger</b>
+        <br>
+        <input type="checkbox" id="randomcolor" style="width:50px;height:50px;" checked>
+        <br>
+        <br>
+        <b>Styrekubeposisjon</b>
+        <div style="width: 12.5%">
+            <input id="x" type="text" style="width:25%" value = 1>
+            <input id="y" type="text" style="width:25%" value = 1>
+            <input id="z" type="text" style="width:25%" value = 1>
+        </div>
+        <button id="reset">Tilbakestill kamera</button>
+
+
     </div>
     <!-- SHADERS -->
     <script id="base-vertex-shader" type="x-shader/x-vertex">

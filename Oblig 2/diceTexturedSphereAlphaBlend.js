@@ -6,7 +6,7 @@ import {isPowerOfTwo1} from '../base/lib/utility-functions.js';
 
 export function main() {
 	// Oppretter et webGLCanvas for WebGL-tegning:
-	const webGLCanvas = new WebGLCanvas('myCanvas', document.body, 960, 640);
+	const webGLCanvas = new WebGLCanvas('myCanvas', document.body, window.innerWidth, window.innerHeight);
 
 	// Starter med å laste teksturer:
 	let imageLoader = new ImageLoader();
