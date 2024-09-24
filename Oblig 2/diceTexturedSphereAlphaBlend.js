@@ -23,6 +23,7 @@ export function main() {
 					textureShader: initTextureShaders(webGLCanvas.gl),
 					coordBuffers: initCoordBuffers(webGLCanvas.gl),
 					diceBuffers: initDiceTextureAndBuffers(webGLCanvas.gl, textureImage),
+					gridBuffers: initGridBuffers(webGLCanvas.gl, 10),
 					currentlyPressedKeys: [],
 					lastTime: 0,
 					fpsInfo: {  // Brukes til å beregne og vise FPS (Frames Per Seconds):
@@ -155,26 +156,6 @@ function initTextureShaders(gl) {
 	};
 }
 
-// Everything
-function draw(currentTime, renderInfo, camera) {
-	clearCanvas(renderInfo.gl);
-	let modelMatrix = new Matrix4();
-
-	// Tegner koordinatsystemet
-	coord(renderInfo, camera, modelMatrix);
-	// Tegner Dice
-	drawTransparentObjects(renderInfo, camera);
-
-	Dice(renderInfo, camera, modelMatrix)
-
-	renderInfo.gl.enable(renderInfo.gl.BLEND);
-	renderInfo.gl.blendFunc(renderInfo.gl.SRC_ALPHA, renderInfo.gl.ONE_MINUS_SRC_ALPHA);
-	//* Slår AV depthMask (endrer dermed ikke DEPTH-BUFFER):
-	renderInfo.gl.depthMask(false);
-	//* Tegner:
-	renderInfo.gl.depthMask(true);
-}
-
 // Transparency
 function drawTransparentObjects(renderInfo, camera) {
 	let modelMatrix = new Matrix4();
@@ -202,6 +183,73 @@ function drawTransparentObjects(renderInfo, camera) {
 		//Merk bruk av func(...)!
 		objectsToDraw[i].func(renderInfo, camera, modelMatrix);
 	}
+}
+
+// Grid setup
+function initGridBuffers(gl, squares) {
+	const extent =  squares;
+	var grids = [];
+	var color = [];
+	for (var i = -squares; i < squares+1; i++) {
+		grids.push(
+			-extent, 0, i,
+			extent, 0, i,
+			i, 0, -extent,
+			i, 0, extent
+		)
+		color.push(
+			0,0,0,1,   //R G B A
+			0,0,0,1,   //R G B A
+			0,0,0,1,   //R G B A
+			0,0,0,1,   //R G B A
+		)
+	}
+	console.log(grids)
+	const positions = new Float32Array(grids);
+
+	const colors = new Float32Array(color);
+
+	const positionBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+	gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+	const colorBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
+	gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+	return  {
+		position: positionBuffer,
+		color: colorBuffer,
+		vertexCount: positions.length/3
+	};
+}
+// Coord funksjonen
+function drawGrid(renderInfo, camera) {
+
+	renderInfo.gl.useProgram(renderInfo.baseShader.program);
+
+	let modelMatrix = new Matrix4();
+	let viewMatrix = new Matrix4(camera.viewMatrix);
+	let modelviewMatrix = viewMatrix.multiply(modelMatrix);
+
+	renderInfo.gl.uniformMatrix4fv(renderInfo.baseShader.uniformLocations.modelViewMatrix, false, modelviewMatrix.elements);
+	renderInfo.gl.uniformMatrix4fv(renderInfo.baseShader.uniformLocations.projectionMatrix, false, camera.projectionMatrix.elements);
+
+	connectPositionAttribute(renderInfo.gl, renderInfo.baseShader, renderInfo.gridBuffers.position);
+	connectColorAttribute(renderInfo.gl, renderInfo.baseShader, renderInfo.gridBuffers.color);
+
+	renderInfo.gl.uniformMatrix4fv(renderInfo.baseShader.uniformLocations.modelViewMatrix, false, modelviewMatrix.elements);
+	renderInfo.gl.uniformMatrix4fv(renderInfo.baseShader.uniformLocations.projectionMatrix, false, camera.projectionMatrix.elements);
+
+	renderInfo.gl.drawArrays(renderInfo.gl.LINES, 0, renderInfo.gridBuffers.vertexCount);
+}
+// Coord call
+function Grid(renderInfo, camera, modelMatrix) {
+
+	modelMatrix.setIdentity();
+	drawGrid(renderInfo, camera, modelMatrix);
 }
 
 // Coord setup
@@ -542,6 +590,26 @@ function Dice(renderInfo, camera, modelMatrix) {
 	drawDice(renderInfo, camera, modelMatrix);
 }
 
+// Everything
+function draw(currentTime, renderInfo, camera) {
+	clearCanvas(renderInfo.gl);
+	let modelMatrix = new Matrix4();
+	// Tegner koordinatsystemet
+	//coord(renderInfo, camera, modelMatrix);
+	// Tegner Transparent Objekt
+	drawTransparentObjects(renderInfo, camera);
+	// Tegner Dice
+	Dice(renderInfo, camera, modelMatrix);
+	// Tegner Grid
+	Grid(renderInfo, camera, modelMatrix);
+
+	renderInfo.gl.enable(renderInfo.gl.BLEND);
+	renderInfo.gl.blendFunc(renderInfo.gl.SRC_ALPHA, renderInfo.gl.ONE_MINUS_SRC_ALPHA);
+	//* Slår AV depthMask (endrer dermed ikke DEPTH-BUFFER):
+	renderInfo.gl.depthMask(false);
+	//* Tegner:
+	renderInfo.gl.depthMask(true);
+}
 function clearCanvas(gl) {
 	gl.clearColor(0.9, 0.9, 0.9, 1);  // Clear screen farge.
 	gl.clearDepth(1.0);
