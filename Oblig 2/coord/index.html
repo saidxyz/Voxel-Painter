@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+    <meta charset="utf-8">
+    <title>WebGL Tegner koordinatsystemet</title>
+    <link rel="stylesheet" href="../../base/webgl.css" type="text/css">
+    <script src="../../base/lib/cuon-matrix.js"></script>
+    <script src="../../base/lib/gl-matrix.js"></script>
+
+</head>
+
+<body>
+    <div style="top:0px; left:15px; width:100%; text-align:left; color:black;" class="ui">
+        <h2>WebGL Tegner koordinatsystemet</h2>
+        FPS: <span id="fps">--</span><br>
+        WASD Kamerastyring.<br>
+        VB Zoom<br>
+    </div>
+    <!-- SHADERS -->
+    <script id="base-vertex-shader" type="x-shader/x-vertex">
+        attribute vec3 aVertexPosition;
+        attribute vec4 aVertexColor;
+        uniform mat4 uModelViewMatrix;
+        uniform mat4 uProjectionMatrix;
+        varying lowp vec4 vColor;
+        void main(void) {
+            gl_Position = uProjectionMatrix * uModelViewMatrix * vec4(aVertexPosition, 1.0);
+            vColor = aVertexColor;
+            gl_PointSize = 10.0;    //Merk: Kun i bruk når man tegner POINTS
+        }
+    </script>
+    <script id="base-fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+        varying lowp vec4 vColor;
+        void main(void) {
+            gl_FragColor = vColor;
+        }
+    </script>
+    <script type="module" >
+	    //Bruker strict-mode, betyr bl.a. at variabler må deklareres før bruk, se https://www.w3schools.com/js/js_strict.asp
+	    'use strict';
+	    import {main} from "./coord.js";
+	    main();
+    </script>
+</body>
+
+</html>
