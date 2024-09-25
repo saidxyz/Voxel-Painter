@@ -619,6 +619,12 @@ function Dice(renderInfo, camera, modelMatrix) {
 	drawDice(renderInfo, camera, modelMatrix);
 }
 
+function player(renderInfo, camera, modelMatrix) {
+
+	modelMatrix.setIdentity();
+	drawDice(renderInfo, camera, modelMatrix);
+}
+
 // Everything
 function draw(currentTime, renderInfo, camera) {
 	clearCanvas(renderInfo.gl);
@@ -631,6 +637,8 @@ function draw(currentTime, renderInfo, camera) {
 	Dice(renderInfo, camera, modelMatrix);
 	// Tegner Grid
 	Grid(renderInfo, camera, modelMatrix);
+	// Tegner Player
+	player(renderInfo, camera, modelMatrix);
 
 	renderInfo.gl.enable(renderInfo.gl.BLEND);
 	renderInfo.gl.blendFunc(renderInfo.gl.SRC_ALPHA, renderInfo.gl.ONE_MINUS_SRC_ALPHA);
@@ -639,6 +647,7 @@ function draw(currentTime, renderInfo, camera) {
 	//* Tegner:
 	renderInfo.gl.depthMask(true);
 }
+
 function clearCanvas(gl) {
 	gl.clearColor(0.9, 0.9, 0.9, 1);  // Clear screen farge.
 	gl.clearDepth(1.0);
