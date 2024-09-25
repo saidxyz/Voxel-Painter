@@ -7,36 +7,57 @@ import {isPowerOfTwo1} from '../base/lib/utility-functions.js';
 export function main() {
 	// Oppretter et webGLCanvas for WebGL-tegning:
 	const webGLCanvas = new WebGLCanvas('myCanvas', document.body, window.innerWidth, window.innerHeight);
+	let voxels = [
+		new Voxel({x:5,y:5,z:5},false),
+		new Voxel({x:2,y:2,z:2},true),
+		new Voxel({x:1,y:2,z:3},false, [1,0,0,0.7])
+	]
+
+
 	let playerPositon = {
 		x:0,
 		y:0,
 		z:0,
 	}
 	document.getElementById('zdec').onclick = () => {
+		tryToDrawWhileMove(voxels)
 		document.getElementById('z').value--
 		playerPositon.z = 2 * (+document.getElementById('z').value)
 	}
 	document.getElementById('zinc').onclick = () => {
+		tryToDrawWhileMove(voxels)
 		document.getElementById('z').value++
 		playerPositon.z = 2 * (+document.getElementById('z').value)
 	}
 	document.getElementById('xdec').onclick = () => {
+		tryToDrawWhileMove(voxels)
 		document.getElementById('x').value--
 		playerPositon.x = 2 * (+document.getElementById('x').value)
 	}
 	document.getElementById('xinc').onclick = () => {
+		tryToDrawWhileMove(voxels)
 		document.getElementById('x').value++
 		playerPositon.x = 2 * (+document.getElementById('x').value)
 	}
 	document.getElementById('yinc').onclick = () => {
+		tryToDrawWhileMove(voxels)
 		document.getElementById('y').value++
 		playerPositon.y = 2 *(+document.getElementById('y').value)
 	}
 	document.getElementById('ydec').onclick = () => {
+		tryToDrawWhileMove(voxels)
 		document.getElementById('y').value--
 		playerPositon.y = 2 * (+document.getElementById('y').value)
 	}
-	document.getElementById('build').onclick = () => {alert("+") }
+	document.getElementById('build').onclick = () => {
+		let position = {
+			x: +document.getElementById('x').value,
+			y: +document.getElementById('y').value,
+			z: +document.getElementById('z').value
+		}
+		voxels.push(new Voxel(position,	document.getElementById("randomcolor").checked))
+		console.log(voxels)
+	}
 
 	document.getElementById('x').onchange = () => {playerPositon.x = +document.getElementById('x').value }
 	document.getElementById('y').onchange = () => {playerPositon.y = +document.getElementById('y').value }
@@ -67,7 +88,8 @@ export function main() {
 					fpsInfo: {  // Brukes til å beregne og vise FPS (Frames Per Seconds):
 						frameCount: 0,
 						lastTimeStamp: 0
-					}
+					},
+					voxels: voxels
 				};
 
 				initKeyPress(renderInfo);
@@ -103,6 +125,21 @@ export function main() {
 	}, textureUrls);
 }
 
+class Voxel {
+	constructor(position, random, color = [0.5,0.5,0.5,0.7]){
+		this.x = position.x*2
+		this.y = position.y*2 + 1
+		this.z = position.z*2
+		this.color = color
+		if(random){
+			this.color[0] = Math.random()
+			this.color[1] = Math.random()
+			this.color[2] = Math.random()
+		}
+		this.color[3] = 0.7
+	}
+}
+
 function connectPositionAttribute(gl, baseShader, positionBuffer) {
 	const numComponents = 3;
 	const type = gl.FLOAT;
@@ -118,6 +155,17 @@ function connectPositionAttribute(gl, baseShader, positionBuffer) {
 		stride,
 		offset);
 	gl.enableVertexAttribArray(baseShader.attribLocations.vertexPosition);
+}
+
+function tryToDrawWhileMove(voxels){
+	if(document.getElementById('draw').checked){
+		voxels.push(new Voxel({
+				x: document.getElementById('x').value,
+				y: document.getElementById('y').value,
+				z: document.getElementById('z').value
+			},document.getElementById('randomcolor').checked)
+		)
+	}
 }
 
 function connectTextureAttribute(gl, textureShader, textureBuffer, textureObject) {
@@ -223,15 +271,32 @@ function drawTransparentObjects(renderInfo, camera) {
 
 	// Liste med ønskede posisjoner for transparente objekter:
 	let positions = [];
-	positions.push(
-		{x: 0, y: 1, z: 0},		//Kuben
-		{x: 0, y: 0, z: -10},	//Sfæren/kula
-	);
+	let colors = [];
+	for(let i = 0; i < renderInfo.voxels.length;i++) {
+		positions.push(
+			{
+				x: renderInfo.voxels[i].x,
+				y: renderInfo.voxels[i].y,
+				z: renderInfo.voxels[i].z
+			}
+		);
+		colors.push(
+			renderInfo.voxels[i].color
+		)
+	}
+	console.log(positions)
+	console.log(renderInfo.voxels)
 	// Liste som inneholder kubenes posisjon (pos), avstand til kamera (dist) og hvilken draw-funksjon som skal kalles (func):
 	let objectsToDraw = [];
-	objectsToDraw.push(
-		{pos: positions[0], dist: distanceFromCamera(camera, positions[0]), func: (renderInfo, camera, modelMatrix)=> drawDice(renderInfo, camera, modelMatrix)}
-	);
+	for (let i = 0; i < positions.length;i++) {
+		objectsToDraw.push(
+			{
+				pos: positions[i],
+				dist: distanceFromCamera(camera, positions[i]),
+				func: (renderInfo, camera, modelMatrix)=> drawDice(renderInfo, camera, modelMatrix, colors[i])
+			}
+		);
+	}
 
 	// Sorterer transparente objekter basert på avstanden fra kamera.
 	// Merk: Bruker sentrum av objektet, som ikke nødvendigvis alltid blir helt korrekt.
@@ -592,15 +657,26 @@ function initDiceTextureAndBuffers(gl, textureImage) {
 	};
 }
 // Dice funksjonen
-function drawDice(renderInfo, camera, modelMatrix) {
+function drawDice(renderInfo, camera, modelMatrix, colors = [0.5,0.5,0.5,0.7]) {
 
 	renderInfo.gl.useProgram(renderInfo.textureShader.program);
+
+	let colorTemp = []
+	for(let i = 0; i < renderInfo.diceBuffers.vertexCount;i++){
+		colorTemp[i] = colors
+	}
+	colorTemp = colorTemp.flat()
+
+	let colorBuffer = renderInfo.gl.createBuffer();
+	renderInfo.gl.bindBuffer(renderInfo.gl.ARRAY_BUFFER, colorBuffer);
+	renderInfo.gl.bufferData(renderInfo.gl.ARRAY_BUFFER, new Float32Array(colorTemp), renderInfo.gl.STATIC_DRAW);
+	renderInfo.gl.bindBuffer(renderInfo.gl.ARRAY_BUFFER, null);
 
 	let viewMatrix = new Matrix4(camera.viewMatrix);
 	let modelviewMatrix = viewMatrix.multiply(modelMatrix);
 
 	connectPositionAttribute(renderInfo.gl, renderInfo.textureShader, renderInfo.diceBuffers.position);
-	connectColorAttribute(renderInfo.gl, renderInfo.textureShader, renderInfo.diceBuffers.color);
+	connectColorAttribute(renderInfo.gl, renderInfo.textureShader, colorBuffer);
 	connectTextureAttribute(renderInfo.gl, renderInfo.textureShader, renderInfo.diceBuffers.texture, renderInfo.diceBuffers.textureObject);
 
 	renderInfo.gl.uniformMatrix4fv(renderInfo.textureShader.uniformLocations.modelViewMatrix, false, modelviewMatrix.elements);
@@ -623,37 +699,19 @@ function Dice(renderInfo, camera, modelMatrix) {
 	renderInfo.gl.blendFunc(renderInfo.gl.SRC_ALPHA, renderInfo.gl.ONE_MINUS_SRC_ALPHA);
 	//* Slår AV depthMask (endrer dermed ikke DEPTH-BUFFER):
 	renderInfo.gl.depthMask(false);
-	//* Tegner:
+	//* Tegner voxels:
 	renderInfo.gl.depthMask(true);
-	// +X
-	modelMatrix.setIdentity();
-	modelMatrix.translate(2,1, 0);
-	drawDice(renderInfo, camera, modelMatrix);
 
-	// -X
-	modelMatrix.setIdentity();
-	modelMatrix.translate(-2,1, 0);
-	drawDice(renderInfo, camera, modelMatrix);
+	for(let voxel in renderInfo.voxels.length){
+		modelMatrix.setIdentity();
+		modelMatrix.translate(
+			voxel.position.x,
+			voxel.position.y,
+			voxel.position.z
+		);
+		drawDice(renderInfo, camera, modelMatrix);
+	}
 
-	// -Z
-	modelMatrix.setIdentity();
-	modelMatrix.translate(0,1, 2);
-	drawDice(renderInfo, camera, modelMatrix);
-
-	// +Z
-	modelMatrix.setIdentity();
-	modelMatrix.translate(0,1, -2);
-	drawDice(renderInfo, camera, modelMatrix);
-
-	// +Y
-	modelMatrix.setIdentity();
-	modelMatrix.translate(0,3, 0);
-	drawDice(renderInfo, camera, modelMatrix);
-
-	// -Y
-	modelMatrix.setIdentity();
-	modelMatrix.translate(0,-1, 0);
-	drawDice(renderInfo, camera, modelMatrix);
 }
 // Update position variables when buttons are clicked
 
@@ -985,10 +1043,12 @@ function draw(currentTime, renderInfo, camera) {
 	let modelMatrix = new Matrix4();
 	// Draw koordinatsystemet
 	coord(renderInfo, camera, modelMatrix);
-	// Draw Transparent Objekt
-	//drawTransparentObjects(renderInfo, camera);
 	// Draw Dice
-	//Dice(renderInfo, camera, modelMatrix);
+	Dice(renderInfo, camera, modelMatrix);
+	// Draw Transparent Objekt
+	drawTransparentObjects(renderInfo, camera);
+	// Draw Dice
+	Dice(renderInfo, camera, modelMatrix);
 	// Draw Grid
 	Grid(renderInfo, camera, modelMatrix);
 	// Draw Player
