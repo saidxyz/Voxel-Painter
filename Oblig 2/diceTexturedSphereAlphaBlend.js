@@ -9,7 +9,7 @@ export function main() {
 	const webGLCanvas = new WebGLCanvas('myCanvas', document.body, window.innerWidth, window.innerHeight);
 	let playerPositon = {
 		x:0,
-		y:1,
+		y:0,
 		z:0,
 	}
 	document.getElementById('zdec').onclick = () => {
@@ -60,7 +60,7 @@ export function main() {
 					coordBuffers: initCoordBuffers(webGLCanvas.gl),
 					diceBuffers: initDiceTextureAndBuffers(webGLCanvas.gl, textureImage),
 					gridBuffers: initGridBuffers(webGLCanvas.gl, 20),
-					playerBuffer:initPlayerBuffers(webGLCanvas.gl),
+					playerBuffer:initPlayerBuffers(webGLCanvas.gl, textureImage),
 					coneBuffer:initCone(webGLCanvas.gl),
 					currentlyPressedKeys: [],
 					lastTime: 0,
@@ -658,7 +658,7 @@ function Dice(renderInfo, camera, modelMatrix) {
 // Update position variables when buttons are clicked
 
 // Player setup
-function initPlayerBuffers(gl) {
+function initPlayerBuffers(gl, textureImage) {
 	let positions = [
 		//Forsiden (pos):
 		-1.1, 1.1, 1.1,
@@ -829,7 +829,7 @@ function initPlayerBuffers(gl) {
 	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 	gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);   //NB! FOR GJENNOMSIKTIG BAKGRUNN!! Sett også gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 	//Laster teksturbildet til GPU/shader:
-
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textureImage);
 	//Teksturparametre:
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -878,7 +878,7 @@ function drawPlayer(renderInfo, camera, modelMatrix) {
 function player(renderInfo, camera, modelMatrix) {
 
 	modelMatrix.setIdentity();
-	modelMatrix.translate(renderInfo.position.x,renderInfo.position.y,renderInfo.position.z);
+	modelMatrix.translate(renderInfo.position.x,renderInfo.position.y+1,renderInfo.position.z);
 	drawPlayer(renderInfo, camera, modelMatrix);
 }
 
@@ -945,7 +945,6 @@ function Cone(renderInfo, camera, modelMatrix) {
 
 	modelMatrix.setIdentity();
 	modelMatrix.translate(0,5,0);
-
 	modelMatrix.scale(0.2,0.2,0.2);
 	drawCone(renderInfo, camera, modelMatrix);
 
@@ -956,23 +955,27 @@ function Cone(renderInfo, camera, modelMatrix) {
 
 	modelMatrix.setIdentity();
 	modelMatrix.translate(5,0,0);
+	modelMatrix.rotate(270,0.0,0.0);
 	modelMatrix.scale(0.2,0.2,0.2);
+
 	drawCone(renderInfo, camera, modelMatrix);
 
 	modelMatrix.setIdentity();
 	modelMatrix.translate(-5,0,0);
+	modelMatrix.rotate(270,0.0,0.0);
 	modelMatrix.scale(0.2,0.2,0.2);
 	drawCone(renderInfo, camera, modelMatrix);
 
 	modelMatrix.setIdentity();
 	modelMatrix.translate(0,0,5);
+	modelMatrix.rotate(0,0.0,0.0);
 	modelMatrix.scale(0.2,0.2,0.2);
 	drawCone(renderInfo, camera, modelMatrix);
 
 	modelMatrix.setIdentity();
 	modelMatrix.translate(0,0,-5);
+	modelMatrix.rotate(90,0.0,0.0);
 	modelMatrix.scale(0.2,0.2,0.2);
-	modelMatrix.rotate(0,0,0);
 	drawCone(renderInfo, camera, modelMatrix);
 }
 
