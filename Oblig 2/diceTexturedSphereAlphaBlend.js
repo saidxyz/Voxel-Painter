@@ -7,13 +7,42 @@ import {isPowerOfTwo1} from '../base/lib/utility-functions.js';
 export function main() {
 	// Oppretter et webGLCanvas for WebGL-tegning:
 	const webGLCanvas = new WebGLCanvas('myCanvas', document.body, window.innerWidth, window.innerHeight);
-	document.getElementById('zdec').onclick = () => {document.getElementById('z').value-- }
-	document.getElementById('xdec').onclick = () => {document.getElementById('x').value-- }
+	let playerPositon = {
+		x:0,
+		y:1,
+		z:0,
+	}
+	document.getElementById('zdec').onclick = () => {
+		document.getElementById('z').value--
+		playerPositon.z = 2 * (+document.getElementById('z').value)
+	}
+	document.getElementById('zinc').onclick = () => {
+		document.getElementById('z').value++
+		playerPositon.z = 2 * (+document.getElementById('z').value)
+	}
+	document.getElementById('xdec').onclick = () => {
+		document.getElementById('x').value--
+		playerPositon.x = 2 * (+document.getElementById('x').value)
+	}
+	document.getElementById('xinc').onclick = () => {
+		document.getElementById('x').value++
+		playerPositon.x = 2 * (+document.getElementById('x').value)
+	}
+	document.getElementById('yinc').onclick = () => {
+		document.getElementById('y').value++
+		playerPositon.y = 2 *(+document.getElementById('y').value)
+	}
+	document.getElementById('ydec').onclick = () => {
+		document.getElementById('y').value--
+		playerPositon.y = 2 * (+document.getElementById('y').value)
+	}
 	document.getElementById('build').onclick = () => {alert("+") }
-	document.getElementById('xinc').onclick = () => {document.getElementById('x').value++ }
-	document.getElementById('yinc').onclick = () => {document.getElementById('y').value++ }
-	document.getElementById('zinc').onclick = () => {document.getElementById('z').value++ }
-	document.getElementById('ydec').onclick = () => {document.getElementById('y').value-- }
+
+	document.getElementById('x').onchange = () => {playerPositon.x = +document.getElementById('x').value }
+	document.getElementById('y').onchange = () => {playerPositon.y = +document.getElementById('y').value }
+	document.getElementById('z').onchange = () => {playerPositon.z = +document.getElementById('z').value }
+
+
 
 	// Starter med å laste teksturer:
 	let imageLoader = new ImageLoader();
@@ -24,6 +53,7 @@ export function main() {
 				// Fortsetter:
 				// Hjelpeobjekt som holder på objekter som trengs for rendring:
 				const renderInfo = {
+					position: playerPositon,
 					gl: webGLCanvas.gl,
 					baseShader: initBaseShaders(webGLCanvas.gl),
 					textureShader: initTextureShaders(webGLCanvas.gl),
@@ -686,55 +716,55 @@ function initPlayerBuffers(gl) {
 	];
 	let colors = [
 		//Forsiden:
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
 
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
 
 		//H�yre side:
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
 
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
 		//Baksiden:
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
 
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
 
 		//Venstre side:
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
 
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
 		//Topp
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
 
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
 		//Bunn:
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
 
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
-		0.0, 0.0, 0.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
+		1.0, 1.0, 1.0, 1,
 	];
 
 	//Holder etter hvert p� alle uv-koordinater for terningen.
@@ -845,10 +875,10 @@ function drawPlayer(renderInfo, camera, modelMatrix) {
 	renderInfo.gl.drawArrays(renderInfo.gl.TRIANGLES, 0, renderInfo.playerBuffer.vertexCount);
 }
 // Player call
-function player(renderInfo, camera, modelMatrix, x,y,z) {
+function player(renderInfo, camera, modelMatrix) {
 
 	modelMatrix.setIdentity();
-	modelMatrix.translate(1,1,1);
+	modelMatrix.translate(renderInfo.position.x,renderInfo.position.y,renderInfo.position.z);
 	drawPlayer(renderInfo, camera, modelMatrix);
 }
 
@@ -915,7 +945,7 @@ function Cone(renderInfo, camera, modelMatrix) {
 
 	modelMatrix.setIdentity();
 	modelMatrix.translate(0,5,0);
-	modelMatrix.rotate(0,0,0);
+
 	modelMatrix.scale(0.2,0.2,0.2);
 	drawCone(renderInfo, camera, modelMatrix);
 
@@ -955,7 +985,7 @@ function draw(currentTime, renderInfo, camera) {
 	// Draw Transparent Objekt
 	//drawTransparentObjects(renderInfo, camera);
 	// Draw Dice
-	// Dice(renderInfo, camera, modelMatrix);
+	//Dice(renderInfo, camera, modelMatrix);
 	// Draw Grid
 	Grid(renderInfo, camera, modelMatrix);
 	// Draw Player
