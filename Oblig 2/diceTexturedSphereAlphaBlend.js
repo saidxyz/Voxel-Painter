@@ -14,6 +14,7 @@ export function main() {
 	document.getElementById('yinc').onclick = () => {document.getElementById('y').value++ }
 	document.getElementById('zinc').onclick = () => {document.getElementById('z').value++ }
 	document.getElementById('ydec').onclick = () => {document.getElementById('y').value-- }
+
 	// Starter med å laste teksturer:
 	let imageLoader = new ImageLoader();
 	let textureUrls = ['../../base/textures/dice1.png'];
@@ -21,7 +22,6 @@ export function main() {
 			const textureImage = textureImages[0];
 			if (isPowerOfTwo1(textureImage.width) && isPowerOfTwo1(textureImage.height)) {
 				// Fortsetter:
-
 				// Hjelpeobjekt som holder på objekter som trengs for rendring:
 				const renderInfo = {
 					gl: webGLCanvas.gl,
@@ -30,7 +30,8 @@ export function main() {
 					coordBuffers: initCoordBuffers(webGLCanvas.gl),
 					diceBuffers: initDiceTextureAndBuffers(webGLCanvas.gl, textureImage),
 					gridBuffers: initGridBuffers(webGLCanvas.gl, 20),
-					playerBuffer:initPlayerBuffers(webGLCanvas.gl, textureImage),
+					playerBuffer:initPlayerBuffers(webGLCanvas.gl),
+					coneBuffer:initCone(webGLCanvas.gl),
 					currentlyPressedKeys: [],
 					lastTime: 0,
 					fpsInfo: {  // Brukes til å beregne og vise FPS (Frames Per Seconds):
@@ -624,6 +625,7 @@ function Dice(renderInfo, camera, modelMatrix) {
 	modelMatrix.translate(0,-1, 0);
 	drawDice(renderInfo, camera, modelMatrix);
 }
+// Update position variables when buttons are clicked
 
 // Player setup
 function initPlayerBuffers(gl) {
@@ -843,27 +845,123 @@ function drawPlayer(renderInfo, camera, modelMatrix) {
 	renderInfo.gl.drawArrays(renderInfo.gl.TRIANGLES, 0, renderInfo.playerBuffer.vertexCount);
 }
 // Player call
-function player(renderInfo, camera, modelMatrix) {
+function player(renderInfo, camera, modelMatrix, x,y,z) {
 
 	modelMatrix.setIdentity();
-	modelMatrix.translate(6,1,0);
+	modelMatrix.translate(1,1,1);
 	drawPlayer(renderInfo, camera, modelMatrix);
+}
+
+// Cone setup
+function initCone(gl) {
+	let positions = [];
+	let colors = [];
+
+	let sectors = 12;
+	let stepGrader = 360 / sectors;
+	let step = (Math.PI / 180) * stepGrader;
+	let r =0 , g = 0, b = 1, a = 1; // Fargeverdier.
+
+	// Startpunkt (toppen av kjegla):
+	let x = 0, y = 2, z = 0;
+	positions = positions.concat(x, y, z);
+	colors = colors.concat(r, g, b, a);
+
+	let phi = 0.0;
+	for (let sector = 1; sector <= sectors + 1; sector++) {
+		x = Math.cos(phi);
+		y = 0;
+		z = Math.sin(phi);
+
+		positions = positions.concat(x, y, z);
+		g += 0.1; // Endrer litt på fargen for hver verteks.
+		colors = colors.concat(r, g, b, a);
+
+		phi += step;
+	}
+
+	const positionBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+	const colorBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+
+	return {
+		position: positionBuffer,
+		color: colorBuffer,
+		vertexCount: positions.length / 3,
+	};
+}
+// Cone funksjonen
+function drawCone(renderInfo, camera, modelMatrix) {
+
+	renderInfo.gl.useProgram(renderInfo.textureShader.program);
+
+	let viewMatrix = new Matrix4(camera.viewMatrix);
+	let modelviewMatrix = viewMatrix.multiply(modelMatrix);
+
+	renderInfo.gl.uniformMatrix4fv(renderInfo.textureShader.uniformLocations.modelViewMatrix, false, modelviewMatrix.elements);
+	renderInfo.gl.uniformMatrix4fv(renderInfo.textureShader.uniformLocations.projectionMatrix, false, camera.projectionMatrix.elements);
+
+	connectPositionAttribute(renderInfo.gl, renderInfo.baseShader, renderInfo.coneBuffer.position);
+	connectColorAttribute(renderInfo.gl, renderInfo.baseShader, renderInfo.coneBuffer.color);
+
+	renderInfo.gl.drawArrays(renderInfo.gl.TRIANGLE_FAN, 0, renderInfo.coneBuffer.vertexCount);
+}
+// Cone call
+function Cone(renderInfo, camera, modelMatrix) {
+
+	modelMatrix.setIdentity();
+	modelMatrix.translate(0,5,0);
+	modelMatrix.rotate(0,0,0);
+	modelMatrix.scale(0.2,0.2,0.2);
+	drawCone(renderInfo, camera, modelMatrix);
+
+	modelMatrix.setIdentity();
+	modelMatrix.translate(0,-5,0);
+	modelMatrix.scale(0.2,0.2,0.2);
+	drawCone(renderInfo, camera, modelMatrix);
+
+	modelMatrix.setIdentity();
+	modelMatrix.translate(5,0,0);
+	modelMatrix.scale(0.2,0.2,0.2);
+	drawCone(renderInfo, camera, modelMatrix);
+
+	modelMatrix.setIdentity();
+	modelMatrix.translate(-5,0,0);
+	modelMatrix.scale(0.2,0.2,0.2);
+	drawCone(renderInfo, camera, modelMatrix);
+
+	modelMatrix.setIdentity();
+	modelMatrix.translate(0,0,5);
+	modelMatrix.scale(0.2,0.2,0.2);
+	drawCone(renderInfo, camera, modelMatrix);
+
+	modelMatrix.setIdentity();
+	modelMatrix.translate(0,0,-5);
+	modelMatrix.scale(0.2,0.2,0.2);
+	modelMatrix.rotate(0,0,0);
+	drawCone(renderInfo, camera, modelMatrix);
 }
 
 // Everything
 function draw(currentTime, renderInfo, camera) {
 	clearCanvas(renderInfo.gl);
 	let modelMatrix = new Matrix4();
-	// Tegner koordinatsystemet
+	// Draw koordinatsystemet
 	coord(renderInfo, camera, modelMatrix);
-	// Tegner Transparent Objekt
-	drawTransparentObjects(renderInfo, camera);
-	// Tegner Dice
-	Dice(renderInfo, camera, modelMatrix);
-	// Tegner Grid
+	// Draw Transparent Objekt
+	//drawTransparentObjects(renderInfo, camera);
+	// Draw Dice
+	// Dice(renderInfo, camera, modelMatrix);
+	// Draw Grid
 	Grid(renderInfo, camera, modelMatrix);
-	// Tegner Player
+	// Draw Player
 	player(renderInfo, camera, modelMatrix);
+	// Draw Cone
+	Cone(renderInfo, camera, modelMatrix);
 
 }
 
