@@ -7,7 +7,13 @@ import {isPowerOfTwo1} from '../base/lib/utility-functions.js';
 export function main() {
 	// Oppretter et webGLCanvas for WebGL-tegning:
 	const webGLCanvas = new WebGLCanvas('myCanvas', document.body, window.innerWidth, window.innerHeight);
-
+	document.getElementById('zdec').onclick = () => {document.getElementById('z').value-- }
+	document.getElementById('xdec').onclick = () => {document.getElementById('x').value-- }
+	document.getElementById('build').onclick = () => {alert("+") }
+	document.getElementById('xinc').onclick = () => {document.getElementById('x').value++ }
+	document.getElementById('yinc').onclick = () => {document.getElementById('y').value++ }
+	document.getElementById('zinc').onclick = () => {document.getElementById('z').value++ }
+	document.getElementById('ydec').onclick = () => {document.getElementById('y').value-- }
 	// Starter med å laste teksturer:
 	let imageLoader = new ImageLoader();
 	let textureUrls = ['../../base/textures/dice1.png'];
@@ -41,6 +47,24 @@ export function main() {
 					camera.camPosX = 5;
 					camera.camPosY = 8;
 					camera.camPosZ = 5;
+				}
+				document.onwheel = (e ) => {
+					if (e.deltaY > 0) {
+						let camPosVec = vec3.fromValues(camera.camPosX, camera.camPosY, camera.camPosZ);
+						vec3.scale(camPosVec, camPosVec, 1.10);
+						camera.camPosX = camPosVec[0];
+						camera.camPosY = camPosVec[1];
+						camera.camPosZ = camPosVec[2];
+						camera.set();
+					}
+					if (e.deltaY < 0) {
+						let camPosVec = vec3.fromValues(camera.camPosX, camera.camPosY, camera.camPosZ);
+						vec3.scale(camPosVec, camPosVec, 0.90);
+						camera.camPosX = camPosVec[0];
+						camera.camPosY = camPosVec[1];
+						camera.camPosZ = camPosVec[2];
+						camera.set();
+					}
 				}
 				animate( 0, renderInfo, camera);
 			}
