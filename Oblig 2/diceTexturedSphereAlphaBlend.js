@@ -30,6 +30,7 @@ export function main() {
 					coordBuffers: initCoordBuffers(webGLCanvas.gl),
 					diceBuffers: initDiceTextureAndBuffers(webGLCanvas.gl, textureImage),
 					gridBuffers: initGridBuffers(webGLCanvas.gl, 20),
+					playerBuffer:initPlayerBuffers(webGLCanvas.gl, textureImage),
 					currentlyPressedKeys: [],
 					lastTime: 0,
 					fpsInfo: {  // Brukes til å beregne og vise FPS (Frames Per Seconds):
@@ -587,7 +588,12 @@ function drawDice(renderInfo, camera, modelMatrix) {
 }
 // Dice call
 function Dice(renderInfo, camera, modelMatrix) {
-
+	renderInfo.gl.enable(renderInfo.gl.BLEND);
+	renderInfo.gl.blendFunc(renderInfo.gl.SRC_ALPHA, renderInfo.gl.ONE_MINUS_SRC_ALPHA);
+	//* Slår AV depthMask (endrer dermed ikke DEPTH-BUFFER):
+	renderInfo.gl.depthMask(false);
+	//* Tegner:
+	renderInfo.gl.depthMask(true);
 	// +X
 	modelMatrix.setIdentity();
 	modelMatrix.translate(2,1, 0);
@@ -619,10 +625,229 @@ function Dice(renderInfo, camera, modelMatrix) {
 	drawDice(renderInfo, camera, modelMatrix);
 }
 
+// Player setup
+function initPlayerBuffers(gl) {
+	let positions = [
+		//Forsiden (pos):
+		-1.1, 1.1, 1.1,
+		-1.1,-1.1, 1.1,
+		1.1,-1.1, 1.1,
+
+		-1.1,1.1,1.1,
+		1.1, -1.1, 1.1,
+		1.1,1.1,1.1,
+
+		//H�yre side:
+		1.1,1.1,1.1,
+		1.1,-1.1,1.1,
+		1.1,-1.1,-1.1,
+
+		1.1,1.1,1.1,
+		1.1,-1.1,-1.1,
+		1.1,1.1,-1.1,
+
+		//Baksiden (pos):
+		1.1, -1.1, -1.1,
+		-1.1, -1.1, -1.1,
+		1.1, 1.1, -1.1,
+
+		-1.1, -1.1, -1.1,
+		-1.1, 1.1, -1.1,
+		1.1, 1.1, -1.1,
+
+		//Venstre side:
+		-1.1,-1.1,-1.1,
+		-1.1,1.1,1.1,
+		-1.1,1.1,-1.1,
+
+		-1.1,-1.1,1.1,
+		-1.1,1.1,1.1,
+		-1.1,-1.1,-1.1,
+
+		//Topp:
+		-1.1,1.1,1.1,
+		1.1,1.1,1.1,
+		-1.1,1.1,-1.1,
+
+		-1.1,1.1,-1.1,
+		1.1,1.1,1.1,
+		1.1,1.1,-1.1,
+
+		//Bunn:
+		-1.1,-1.1,-1.1,
+		1.1,-1.1,1.1,
+		-1.1,-1.1,1.1,
+
+		-1.1,-1.1,-1.1,
+		1.1,-1.1,-1.1,
+		1.1,-1.1,1.1,
+	];
+	let colors = [
+		//Forsiden:
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+
+		//H�yre side:
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+		//Baksiden:
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+
+		//Venstre side:
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+		//Topp
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+		//Bunn:
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+		0.0, 0.0, 0.0, 1,
+	];
+
+	//Holder etter hvert p� alle uv-koordinater for terningen.
+	let textureCoordinates = [];
+	//Front (1-tallet):
+	let tl1=[0,1];
+	let bl1=[0,0.5];
+	let tr1=[0.33333,1];
+	let br1=[0.33333,0.5];
+	textureCoordinates = textureCoordinates.concat(tl1, bl1, br1, tl1, br1, tr1);
+
+	//Høyre side (2-tallet):
+	let tl2=[0.33333,1];
+	let bl2=[0.33333,0.5];
+	let tr2=[0.66666,1];
+	let br2=[0.66666,0.5];
+	textureCoordinates = textureCoordinates.concat(tl2, bl2, br2, tl2, br2, tr2);
+
+	//Baksiden (6-tallet):
+	let tl3=[0.66666,0.5];
+	let bl3=[0.66666,0];
+	let tr3=[1,0.5];
+	let br3=[1,0];
+	textureCoordinates = textureCoordinates.concat(bl3, br3, tl3, br3, tr3, tl3);
+
+	//Venstre (5-tallet):
+	let tl4=[0.33333,0.5];
+	let bl4=[0.33333,0];
+	let tr4=[0.66666,0.5];
+	let br4=[0.66666,0];
+	textureCoordinates = textureCoordinates.concat(bl4, tr4, tl4, br4, tr4, bl4);
+
+	//Toppen (3-tallet):
+	let tl5=[0.66666,1];
+	let bl5=[0.66666,0.5];
+	let tr5=[1,1];
+	let br5=[1,0.5];
+	textureCoordinates = textureCoordinates.concat(bl5, br5, tl5, tl5, br5, tr5);
+
+	//Bunnen (4-tallet):
+	let tl6=[0,0.5];
+	let bl6=[0,0];
+	let tr6=[0.33333,0.5];
+	let br6=[0.33333,0];
+	textureCoordinates = textureCoordinates.concat(tr6, bl6, br6,tr6,tl6, bl6);
+
+	const positionBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+	gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+	const colorBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+	gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+	//Texture:
+	const rectangleTexture = gl.createTexture();
+	//Teksturbildet er nå lastet fra server, send til GPU:
+	gl.bindTexture(gl.TEXTURE_2D, rectangleTexture);
+	//Unngaa at bildet kommer opp-ned:
+	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+	gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);   //NB! FOR GJENNOMSIKTIG BAKGRUNN!! Sett også gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+	//Laster teksturbildet til GPU/shader:
+
+	//Teksturparametre:
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+
+	gl.bindTexture(gl.TEXTURE_2D, null);
+
+	const textureBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoordinates), gl.STATIC_DRAW);
+
+	return  {
+		position: positionBuffer,
+		color: colorBuffer,
+		texture: textureBuffer,
+		textureObject: rectangleTexture,
+		vertexCount: positions.length/3,
+	};
+}
+// Player funksjonen
+function drawPlayer(renderInfo, camera, modelMatrix) {
+
+	renderInfo.gl.useProgram(renderInfo.textureShader.program);
+
+	let viewMatrix = new Matrix4(camera.viewMatrix);
+	let modelviewMatrix = viewMatrix.multiply(modelMatrix);
+
+	connectPositionAttribute(renderInfo.gl, renderInfo.textureShader, renderInfo.playerBuffer.position);
+	connectColorAttribute(renderInfo.gl, renderInfo.textureShader, renderInfo.playerBuffer.color);
+	connectTextureAttribute(renderInfo.gl, renderInfo.textureShader, renderInfo.playerBuffer.texture, renderInfo.playerBuffer.textureObject);
+
+	renderInfo.gl.uniformMatrix4fv(renderInfo.textureShader.uniformLocations.modelViewMatrix, false, modelviewMatrix.elements);
+	renderInfo.gl.uniformMatrix4fv(renderInfo.textureShader.uniformLocations.projectionMatrix, false, camera.projectionMatrix.elements);
+
+	// Bruker culling for korrekt blending:
+	renderInfo.gl.frontFace(renderInfo.gl.CCW);	    	// Angir vertekser CCW.
+	renderInfo.gl.enable(renderInfo.gl.CULL_FACE);	    // Aktiverer culling.
+
+	//Tegner baksidene først:
+	renderInfo.gl.cullFace(renderInfo.gl.FRONT);	    	// Skjuler forsider.
+	renderInfo.gl.drawArrays(renderInfo.gl.TRIANGLES, 0, renderInfo.playerBuffer.vertexCount);
+	//Tegner deretter forsidene:
+	renderInfo.gl.cullFace(renderInfo.gl.BACK);	    	    // Skjuler baksider.
+	renderInfo.gl.drawArrays(renderInfo.gl.TRIANGLES, 0, renderInfo.playerBuffer.vertexCount);
+}
+// Player call
 function player(renderInfo, camera, modelMatrix) {
 
 	modelMatrix.setIdentity();
-	drawDice(renderInfo, camera, modelMatrix);
+	modelMatrix.translate(6,1,0);
+	drawPlayer(renderInfo, camera, modelMatrix);
 }
 
 // Everything
@@ -640,12 +865,6 @@ function draw(currentTime, renderInfo, camera) {
 	// Tegner Player
 	player(renderInfo, camera, modelMatrix);
 
-	renderInfo.gl.enable(renderInfo.gl.BLEND);
-	renderInfo.gl.blendFunc(renderInfo.gl.SRC_ALPHA, renderInfo.gl.ONE_MINUS_SRC_ALPHA);
-	//* Slår AV depthMask (endrer dermed ikke DEPTH-BUFFER):
-	renderInfo.gl.depthMask(false);
-	//* Tegner:
-	renderInfo.gl.depthMask(true);
 }
 
 function clearCanvas(gl) {
