@@ -7,11 +7,7 @@ import {isPowerOfTwo1} from '../base/lib/utility-functions.js';
 export function main() {
 	// Oppretter et webGLCanvas for WebGL-tegning:
 	const webGLCanvas = new WebGLCanvas('myCanvas', document.body, window.innerWidth, window.innerHeight);
-	let voxels = [
-	//	new Voxel({x:5,y:5,z:5},false),
-	//	new Voxel({x:2,y:2,z:2},true),
-	//	new Voxel({x:1,y:2,z:3},false, [1,0,0,0.7])
-	]
+	let voxels = []
 
 
 	let playerPositon = {
@@ -76,7 +72,8 @@ export function main() {
 				const renderInfo = {
 					position: playerPositon,
 					gl: webGLCanvas.gl,
-					diffuseLightShader: initDiffuseLightShader(webGLCanvas.gl, true),
+					diffuseLightTextureShader: initDiffuseLightTextureShader(webGLCanvas.gl, true),
+					xzplaneBuffers: initXZPlaneBuffers(webGLCanvas.gl, textureImage),
 					baseShader: initBaseShaders(webGLCanvas.gl),
 					textureShader: initTextureShaders(webGLCanvas.gl),
 					coordBuffers: initCoordBuffers(webGLCanvas.gl),
@@ -1044,7 +1041,7 @@ function Cone(renderInfo, camera, modelMatrix) {
 }
 
 // LightShader setup
-function initDiffuseLightShader(gl) {
+function initDiffuseLightTextureShader(gl, usePhongShading=false) {
 
 	// Leser shaderkode fra HTML-fila: Standard/enkel shader (posisjon og farge):
 	let vertexShaderSource = undefined;
@@ -1052,7 +1049,6 @@ function initDiffuseLightShader(gl) {
 
 	vertexShaderSource = document.getElementById('diffuse-pointlight-phong-vertex-shader').innerHTML;
 	fragmentShaderSource = document.getElementById('diffuse-pointlight-phong-fragment-shader').innerHTML;
-
 
 	// Initialiserer  & kompilerer shader-programmene;
 	const glslShader = new WebGLShader(gl, vertexShaderSource, fragmentShaderSource);
@@ -1063,6 +1059,7 @@ function initDiffuseLightShader(gl) {
 		attribLocations: {
 			vertexPosition: gl.getAttribLocation(glslShader.shaderProgram, 'aVertexPosition'),
 			vertexNormal: gl.getAttribLocation(glslShader.shaderProgram, 'aVertexNormal'),
+			vertexTextureCoordinate: gl.getAttribLocation(glslShader.shaderProgram, 'aVertexTextureCoordinate'),
 		},
 		uniformLocations: {
 			projectionMatrix: gl.getUniformLocation(glslShader.shaderProgram, 'uProjectionMatrix'),
@@ -1073,8 +1070,115 @@ function initDiffuseLightShader(gl) {
 			lightPosition: gl.getUniformLocation(glslShader.shaderProgram, 'uLightPosition'),
 			ambientLightColor: gl.getUniformLocation(glslShader.shaderProgram, 'uAmbientLightColor'),
 			diffuseLightColor: gl.getUniformLocation(glslShader.shaderProgram, 'uDiffuseLightColor'),
+
+			sampler: gl.getUniformLocation(glslShader.shaderProgram, 'uSampler'),
 		},
 	};
+}
+
+function initXZPlaneBuffers(gl, textureImage) {
+	const XZPLANE_SIZE=100;
+	let positions = [
+		-XZPLANE_SIZE/2, 0, XZPLANE_SIZE/2,
+		XZPLANE_SIZE/2, 0, XZPLANE_SIZE/2,
+		-XZPLANE_SIZE/2, 0, -XZPLANE_SIZE/2,
+		-XZPLANE_SIZE/2, 0, -XZPLANE_SIZE/2,
+		XZPLANE_SIZE/2, 0, XZPLANE_SIZE/2,
+		XZPLANE_SIZE/2, 0, -XZPLANE_SIZE/2,
+	];
+	let normals = [
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+	];
+	let textureCoordinates = [
+		0, 0,
+		1, 0,
+		0, 1,
+		0, 1,
+		1, 0,
+		1, 1
+	];
+
+	//Texture:
+	const rectangleTexture = gl.createTexture();
+	//Teksturbildet er nå lastet fra server, send til GPU:
+	gl.bindTexture(gl.TEXTURE_2D, rectangleTexture);
+	//Unngaa at bildet kommer opp-ned:
+	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+	gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);   //NB! FOR GJENNOMSIKTIG BAKGRUNN!! Sett også gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+	//Laster teksturbildet til GPU/shader:
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textureImage);
+	//Teksturparametre:
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+
+	gl.bindTexture(gl.TEXTURE_2D, null);
+
+	const textureBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoordinates), gl.STATIC_DRAW);
+
+	const positionBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+	gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+	const normalBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+	gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+	return  {
+		position: positionBuffer,
+		normal: normalBuffer,
+		texture: textureBuffer,
+		textureObject: rectangleTexture,
+		vertexCount: positions.length/3,
+	};
+}
+
+function drawXZPlane(renderInfo, camera) {
+	// Aktiver shader:
+	renderInfo.gl.useProgram(renderInfo.diffuseLightTextureShader.program);
+
+	// Kople posisjon og farge-attributtene til tilhørende buffer:
+	connectPositionAttribute(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.xzplaneBuffers.position);
+	connectNormalAttribute(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.xzplaneBuffers.normal);
+
+	connectAmbientUniform(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.light.ambientLightColor);
+	connectDiffuseUniform(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.light.diffuseLightColor);
+	connectLightPositionUniform(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.light.lightPosition);
+
+	connectTextureAttribute(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.xzplaneBuffers.texture, renderInfo.xzplaneBuffers.textureObject);
+
+	let modelMatrix = new Matrix4();
+	//M=I*T*O*R*S, der O=R*T
+	modelMatrix.setIdentity();
+	modelMatrix.translate(0,0,0);
+	modelMatrix.scale(0.5,0.5, 0.5);
+
+	// Send MODELLmatrisa til shaderen:
+	renderInfo.gl.uniformMatrix4fv(renderInfo.diffuseLightTextureShader.uniformLocations.modelMatrix, false, modelMatrix.elements);
+
+	// Lager en kopi for å ikke påvirke kameramatrisene:
+	let viewMatrix = new Matrix4(camera.viewMatrix);
+	let modelviewMatrix = viewMatrix.multiply(modelMatrix); // NB! rekkefølge!
+
+	renderInfo.gl.uniformMatrix4fv(renderInfo.diffuseLightTextureShader.uniformLocations.modelViewMatrix, false, modelviewMatrix.elements);
+	renderInfo.gl.uniformMatrix4fv(renderInfo.diffuseLightTextureShader.uniformLocations.projectionMatrix, false, camera.projectionMatrix.elements);
+
+	// Beregner og sender inn matrisa som brukes til å transformere normalvektorene:
+	let normalMatrix = mat3.create();
+	mat3.normalFromMat4(normalMatrix, modelMatrix.elements);  //NB!!! mat3.normalFromMat4! SE: gl-matrix.js
+	// Send normalmatrisa til shaderen (merk: 3x3):
+	renderInfo.gl.uniformMatrix3fv(renderInfo.diffuseLightTextureShader.uniformLocations.normalMatrix, false, normalMatrix);
+
+	renderInfo.gl.drawArrays(renderInfo.gl.TRIANGLES, 0, renderInfo.xzplaneBuffers.vertexCount);
 }
 
 
@@ -1112,9 +1216,6 @@ function connectLightPositionUniform(gl, shader, position) {
 function draw(currentTime, renderInfo, camera) {
 	clearCanvas(renderInfo.gl);
 
-	connectAmbientUniform(renderInfo.gl, renderInfo.diffuseLightShader, renderInfo.light.ambientLightColor);
-	connectDiffuseUniform(renderInfo.gl, renderInfo.diffuseLightShader, renderInfo.light.diffuseLightColor);
-	connectLightPositionUniform(renderInfo.gl, renderInfo.diffuseLightShader, renderInfo.light.lightPosition);
 
 	let modelMatrix = new Matrix4();
 	// Draw koordinatsystemet
@@ -1131,7 +1232,7 @@ function draw(currentTime, renderInfo, camera) {
 	player(renderInfo, camera, modelMatrix);
 	// Draw Cone
 	//Cone(renderInfo, camera, modelMatrix);
-
+	drawXZPlane(renderInfo, camera);
 }
 
 function clearCanvas(gl) {
