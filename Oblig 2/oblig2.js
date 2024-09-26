@@ -89,7 +89,7 @@ export function main() {
 					},
 					voxels: voxels,
 					light: {
-						lightPosition: {x: 0, y:3, z:0},
+						lightPosition: {x: 3, y:3, z:3},
 						diffuseLightColor: {r: 0.1, g: 0.8, b:0.3},
 						ambientLightColor: {r: 0.2, g: 0.2, b:0.2},
 					},
@@ -560,6 +560,52 @@ function initDiceTextureAndBuffers(gl, textureImage) {
 		0.5, 0.7, 0.3, 0.3,
 		0.5, 0.7, 0.3, 0.3
 	];
+
+	let normals = [
+		//Forsiden:
+		0.0, 0.0, 1.0,
+		0.0, 0.0, 1.0,
+		0.0, 0.0, 1.0,
+		0.0, 0.0, 1.0,
+		0.0, 0.0, 1.0,
+		0.0, 0.0, 1.0,
+		//H�yre side:
+		1.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
+		//Baksiden:
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
+		//Venstre side:
+		-1.0, 0.0, 0.0,
+		-1.0, 0.0, 0.0,
+		-1.0, 0.0, 0.0,
+		-1.0, 0.0, 0.0,
+		-1.0, 0.0, 0.0,
+		-1.0, 0.0, 0.0,
+		//Topp
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+		//Bunn:
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
+	];
+
 	//for (let i = 0; i < colors.length; i+=4) {
 		//colors[i] = 0.6;
 	//}
@@ -632,6 +678,11 @@ function initDiceTextureAndBuffers(gl, textureImage) {
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
 	gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
+	const normalBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+	gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
 	//Texture:
 	const rectangleTexture = gl.createTexture();
 	//Teksturbildet er nå lastet fra server, send til GPU:
@@ -653,6 +704,7 @@ function initDiceTextureAndBuffers(gl, textureImage) {
 
 	return  {
 		position: positionBuffer,
+		normal: normalBuffer,
 		color: colorBuffer,
 		texture: textureBuffer,
 		textureObject: rectangleTexture,
@@ -662,7 +714,7 @@ function initDiceTextureAndBuffers(gl, textureImage) {
 // Dice funksjonen
 function drawDice(renderInfo, camera, modelMatrix, colors = [0.5,0.5,0.5,0.7]) {
 
-	renderInfo.gl.useProgram(renderInfo.textureShader.program);
+	renderInfo.gl.useProgram(renderInfo.diffuseLightTextureShader.program);
 
 	let colorTemp = []
 	for(let i = 0; i < renderInfo.diceBuffers.vertexCount;i++){
@@ -675,15 +727,33 @@ function drawDice(renderInfo, camera, modelMatrix, colors = [0.5,0.5,0.5,0.7]) {
 	renderInfo.gl.bufferData(renderInfo.gl.ARRAY_BUFFER, new Float32Array(colorTemp), renderInfo.gl.STATIC_DRAW);
 	renderInfo.gl.bindBuffer(renderInfo.gl.ARRAY_BUFFER, null);
 
+	connectPositionAttribute(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.diceBuffers.position);
+	connectColorAttribute(renderInfo.gl, renderInfo.diffuseLightTextureShader, colorBuffer);
+	connectNormalAttribute(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.diceBuffers.normal);
+
+	connectAmbientUniform(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.light.ambientLightColor);
+	connectDiffuseUniform(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.light.diffuseLightColor);
+	connectLightPositionUniform(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.light.lightPosition);
+
+	connectTextureAttribute(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.diceBuffers.texture, renderInfo.diceBuffers.textureObject);
+
+	// Send MODELLmatrisa til shaderen:
+	renderInfo.gl.uniformMatrix4fv(renderInfo.diffuseLightTextureShader.uniformLocations.modelMatrix, false, modelMatrix.elements);
+
+	// Lager en kopi for å ikke påvirke kameramatrisene:
 	let viewMatrix = new Matrix4(camera.viewMatrix);
-	let modelviewMatrix = viewMatrix.multiply(modelMatrix);
+	let modelviewMatrix = viewMatrix.multiply(modelMatrix); // NB! rekkefølge!
 
-	connectPositionAttribute(renderInfo.gl, renderInfo.textureShader, renderInfo.diceBuffers.position);
-	connectColorAttribute(renderInfo.gl, renderInfo.textureShader, colorBuffer);
-	connectTextureAttribute(renderInfo.gl, renderInfo.textureShader, renderInfo.diceBuffers.texture, renderInfo.diceBuffers.textureObject);
 
-	renderInfo.gl.uniformMatrix4fv(renderInfo.textureShader.uniformLocations.modelViewMatrix, false, modelviewMatrix.elements);
-	renderInfo.gl.uniformMatrix4fv(renderInfo.textureShader.uniformLocations.projectionMatrix, false, camera.projectionMatrix.elements);
+	renderInfo.gl.uniformMatrix4fv(renderInfo.diffuseLightTextureShader.uniformLocations.modelViewMatrix, false, modelviewMatrix.elements);
+	renderInfo.gl.uniformMatrix4fv(renderInfo.diffuseLightTextureShader.uniformLocations.projectionMatrix, false, camera.projectionMatrix.elements);
+
+	// Beregner og sender inn matrisa som brukes til å transformere normalvektorene:
+	let normalMatrix = mat3.create();
+	mat3.normalFromMat4(normalMatrix, modelMatrix.elements);  //NB!!! mat3.normalFromMat4! SE: gl-matrix.js
+
+	// Send normalmatrisa til shaderen (merk: 3x3):
+	renderInfo.gl.uniformMatrix3fv(renderInfo.diffuseLightTextureShader.uniformLocations.normalMatrix, false, normalMatrix);
 
 	// Bruker culling for korrekt blending:
 	renderInfo.gl.frontFace(renderInfo.gl.CCW);	    	// Angir vertekser CCW.
@@ -828,6 +898,51 @@ function initPlayerBuffers(gl, textureImage) {
 		1.0, 1.0, 1.0, 1,
 	];
 
+	let normals = [
+		//Forsiden:
+		0.0, 0.0, 1.0,
+		0.0, 0.0, 1.0,
+		0.0, 0.0, 1.0,
+		0.0, 0.0, 1.0,
+		0.0, 0.0, 1.0,
+		0.0, 0.0, 1.0,
+		//H�yre side:
+		1.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
+		1.0, 0.0, 0.0,
+		//Baksiden:
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
+		0.0, 0.0, -1.0,
+		//Venstre side:
+		-1.0, 0.0, 0.0,
+		-1.0, 0.0, 0.0,
+		-1.0, 0.0, 0.0,
+		-1.0, 0.0, 0.0,
+		-1.0, 0.0, 0.0,
+		-1.0, 0.0, 0.0,
+		//Topp
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,
+		//Bunn:
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
+		0.0, -1.0, 0.0,
+	];
+
 	//Holder etter hvert p� alle uv-koordinater for terningen.
 	let textureCoordinates = [];
 	//Front (1-tallet):
@@ -882,6 +997,11 @@ function initPlayerBuffers(gl, textureImage) {
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
 	gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
+	const normalBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+	gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
 	//Texture:
 	const rectangleTexture = gl.createTexture();
 	//Teksturbildet er nå lastet fra server, send til GPU:
@@ -903,6 +1023,7 @@ function initPlayerBuffers(gl, textureImage) {
 
 	return  {
 		position: positionBuffer,
+		normal: normalBuffer,
 		color: colorBuffer,
 		texture: textureBuffer,
 		textureObject: rectangleTexture,
@@ -912,17 +1033,35 @@ function initPlayerBuffers(gl, textureImage) {
 // Player funksjonen
 function drawPlayer(renderInfo, camera, modelMatrix) {
 
-	renderInfo.gl.useProgram(renderInfo.textureShader.program);
+	renderInfo.gl.useProgram(renderInfo.diffuseLightTextureShader.program);
 
+	connectPositionAttribute(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.playerBuffer.position);
+	connectColorAttribute(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.playerBuffer.color);
+	connectNormalAttribute(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.playerBuffer.normal);
+
+	connectAmbientUniform(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.light.ambientLightColor);
+	connectDiffuseUniform(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.light.diffuseLightColor);
+	connectLightPositionUniform(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.light.lightPosition);
+
+	connectTextureAttribute(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.playerBuffer.texture, renderInfo.playerBuffer.textureObject);
+
+	// Send MODELLmatrisa til shaderen:
+	renderInfo.gl.uniformMatrix4fv(renderInfo.diffuseLightTextureShader.uniformLocations.modelMatrix, false, modelMatrix.elements);
+
+	// Lager en kopi for å ikke påvirke kameramatrisene:
 	let viewMatrix = new Matrix4(camera.viewMatrix);
-	let modelviewMatrix = viewMatrix.multiply(modelMatrix);
+	let modelviewMatrix = viewMatrix.multiply(modelMatrix); // NB! rekkefølge!
 
-	connectPositionAttribute(renderInfo.gl, renderInfo.textureShader, renderInfo.playerBuffer.position);
-	connectColorAttribute(renderInfo.gl, renderInfo.textureShader, renderInfo.playerBuffer.color);
-	connectTextureAttribute(renderInfo.gl, renderInfo.textureShader, renderInfo.playerBuffer.texture, renderInfo.playerBuffer.textureObject);
 
-	renderInfo.gl.uniformMatrix4fv(renderInfo.textureShader.uniformLocations.modelViewMatrix, false, modelviewMatrix.elements);
-	renderInfo.gl.uniformMatrix4fv(renderInfo.textureShader.uniformLocations.projectionMatrix, false, camera.projectionMatrix.elements);
+	renderInfo.gl.uniformMatrix4fv(renderInfo.diffuseLightTextureShader.uniformLocations.modelViewMatrix, false, modelviewMatrix.elements);
+	renderInfo.gl.uniformMatrix4fv(renderInfo.diffuseLightTextureShader.uniformLocations.projectionMatrix, false, camera.projectionMatrix.elements);
+
+	// Beregner og sender inn matrisa som brukes til å transformere normalvektorene:
+	let normalMatrix = mat3.create();
+	mat3.normalFromMat4(normalMatrix, modelMatrix.elements);  //NB!!! mat3.normalFromMat4! SE: gl-matrix.js
+
+	// Send normalmatrisa til shaderen (merk: 3x3):
+	renderInfo.gl.uniformMatrix3fv(renderInfo.diffuseLightTextureShader.uniformLocations.normalMatrix, false, normalMatrix);
 
 	// Bruker culling for korrekt blending:
 	renderInfo.gl.frontFace(renderInfo.gl.CCW);	    	// Angir vertekser CCW.
@@ -931,6 +1070,7 @@ function drawPlayer(renderInfo, camera, modelMatrix) {
 	//Tegner baksidene først:
 	renderInfo.gl.cullFace(renderInfo.gl.FRONT);	    	// Skjuler forsider.
 	renderInfo.gl.drawArrays(renderInfo.gl.TRIANGLES, 0, renderInfo.playerBuffer.vertexCount);
+
 	//Tegner deretter forsidene:
 	renderInfo.gl.cullFace(renderInfo.gl.BACK);	    	    // Skjuler baksider.
 	renderInfo.gl.drawArrays(renderInfo.gl.TRIANGLES, 0, renderInfo.playerBuffer.vertexCount);
@@ -1059,6 +1199,7 @@ function initDiffuseLightTextureShader(gl, usePhongShading=false) {
 		attribLocations: {
 			vertexPosition: gl.getAttribLocation(glslShader.shaderProgram, 'aVertexPosition'),
 			vertexNormal: gl.getAttribLocation(glslShader.shaderProgram, 'aVertexNormal'),
+			vertexColor: gl.getAttribLocation(glslShader.shaderProgram, 'aVertexColor'),
 			vertexTextureCoordinate: gl.getAttribLocation(glslShader.shaderProgram, 'aVertexTextureCoordinate'),
 		},
 		uniformLocations: {
@@ -1142,7 +1283,7 @@ function initXZPlaneBuffers(gl, textureImage) {
 	};
 }
 
-function drawXZPlane(renderInfo, camera) {
+function drawXZPlane(renderInfo, camera, modelMatrix) {
 	// Aktiver shader:
 	renderInfo.gl.useProgram(renderInfo.diffuseLightTextureShader.program);
 
@@ -1156,7 +1297,6 @@ function drawXZPlane(renderInfo, camera) {
 
 	connectTextureAttribute(renderInfo.gl, renderInfo.diffuseLightTextureShader, renderInfo.xzplaneBuffers.texture, renderInfo.xzplaneBuffers.textureObject);
 
-	let modelMatrix = new Matrix4();
 	//M=I*T*O*R*S, der O=R*T
 	modelMatrix.setIdentity();
 	modelMatrix.translate(0,0,0);
@@ -1232,7 +1372,7 @@ function draw(currentTime, renderInfo, camera) {
 	player(renderInfo, camera, modelMatrix);
 	// Draw Cone
 	//Cone(renderInfo, camera, modelMatrix);
-	drawXZPlane(renderInfo, camera);
+	//drawXZPlane(renderInfo, camera, modelMatrix);
 }
 
 function clearCanvas(gl) {
