@@ -8,9 +8,9 @@ export function main() {
 	// Oppretter et webGLCanvas for WebGL-tegning:
 	const webGLCanvas = new WebGLCanvas('myCanvas', document.body, window.innerWidth, window.innerHeight);
 	let voxels = [
-		new Voxel({x:5,y:5,z:5},false),
-		new Voxel({x:2,y:2,z:2},true),
-		new Voxel({x:1,y:2,z:3},false, [1,0,0,0.7])
+	//	new Voxel({x:5,y:5,z:5},false),
+	//	new Voxel({x:2,y:2,z:2},true),
+	//	new Voxel({x:1,y:2,z:3},false, [1,0,0,0.7])
 	]
 
 
@@ -1054,7 +1054,7 @@ function draw(currentTime, renderInfo, camera) {
 	// Draw Player
 	player(renderInfo, camera, modelMatrix);
 	// Draw Cone
-	Cone(renderInfo, camera, modelMatrix);
+	//Cone(renderInfo, camera, modelMatrix);
 
 }
 
