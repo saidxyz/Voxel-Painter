@@ -76,6 +76,7 @@ export function main() {
 				const renderInfo = {
 					position: playerPositon,
 					gl: webGLCanvas.gl,
+					diffuseLightShader: initDiffuseLightShader(webGLCanvas.gl, true),
 					baseShader: initBaseShaders(webGLCanvas.gl),
 					textureShader: initTextureShaders(webGLCanvas.gl),
 					coordBuffers: initCoordBuffers(webGLCanvas.gl),
@@ -89,7 +90,12 @@ export function main() {
 						frameCount: 0,
 						lastTimeStamp: 0
 					},
-					voxels: voxels
+					voxels: voxels,
+					light: {
+						lightPosition: {x: 0, y:3, z:0},
+						diffuseLightColor: {r: 0.1, g: 0.8, b:0.3},
+						ambientLightColor: {r: 0.2, g: 0.2, b:0.2},
+					},
 				};
 
 				initKeyPress(renderInfo);
@@ -1037,9 +1043,79 @@ function Cone(renderInfo, camera, modelMatrix) {
 	drawCone(renderInfo, camera, modelMatrix);
 }
 
+// LightShader setup
+function initDiffuseLightShader(gl) {
+
+	// Leser shaderkode fra HTML-fila: Standard/enkel shader (posisjon og farge):
+	let vertexShaderSource = undefined;
+	let fragmentShaderSource = undefined;
+
+	vertexShaderSource = document.getElementById('diffuse-pointlight-phong-vertex-shader').innerHTML;
+	fragmentShaderSource = document.getElementById('diffuse-pointlight-phong-fragment-shader').innerHTML;
+
+
+	// Initialiserer  & kompilerer shader-programmene;
+	const glslShader = new WebGLShader(gl, vertexShaderSource, fragmentShaderSource);
+
+	// Samler all shader-info i ET JS-objekt, som returneres.
+	return  {
+		program: glslShader.shaderProgram,
+		attribLocations: {
+			vertexPosition: gl.getAttribLocation(glslShader.shaderProgram, 'aVertexPosition'),
+			vertexNormal: gl.getAttribLocation(glslShader.shaderProgram, 'aVertexNormal'),
+		},
+		uniformLocations: {
+			projectionMatrix: gl.getUniformLocation(glslShader.shaderProgram, 'uProjectionMatrix'),
+			modelViewMatrix: gl.getUniformLocation(glslShader.shaderProgram, 'uModelViewMatrix'),
+			modelMatrix: gl.getUniformLocation(glslShader.shaderProgram, 'uModelMatrix'),
+			normalMatrix: gl.getUniformLocation(glslShader.shaderProgram, 'uNormalMatrix'),
+
+			lightPosition: gl.getUniformLocation(glslShader.shaderProgram, 'uLightPosition'),
+			ambientLightColor: gl.getUniformLocation(glslShader.shaderProgram, 'uAmbientLightColor'),
+			diffuseLightColor: gl.getUniformLocation(glslShader.shaderProgram, 'uDiffuseLightColor'),
+		},
+	};
+}
+
+
+function connectNormalAttribute(gl, shader, normalBuffer) {
+	const numComponents = 3;
+	const type = gl.FLOAT;
+	const normalize = false;
+	const stride = 0;
+	const offset = 0;
+	gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+	gl.vertexAttribPointer(
+		shader.attribLocations.vertexNormal,
+		numComponents,
+		type,
+		normalize,
+		stride,
+		offset);
+	gl.enableVertexAttribArray(shader.attribLocations.vertexNormal);
+}
+
+function connectAmbientUniform(gl, shader, color) {
+	gl.uniform3f(shader.uniformLocations.ambientLightColor, color.r,color.g,color.b);
+}
+
+function connectDiffuseUniform(gl, shader,color) {
+	gl.uniform3f(shader.uniformLocations.diffuseLightColor, color.r,color.g,color.b);
+}
+
+function connectLightPositionUniform(gl, shader, position) {
+	gl.uniform3f(shader.uniformLocations.lightPosition, position.x,position.y,position.z);
+}
+
+
 // Everything
 function draw(currentTime, renderInfo, camera) {
 	clearCanvas(renderInfo.gl);
+
+	connectAmbientUniform(renderInfo.gl, renderInfo.diffuseLightShader, renderInfo.light.ambientLightColor);
+	connectDiffuseUniform(renderInfo.gl, renderInfo.diffuseLightShader, renderInfo.light.diffuseLightColor);
+	connectLightPositionUniform(renderInfo.gl, renderInfo.diffuseLightShader, renderInfo.light.lightPosition);
+
 	let modelMatrix = new Matrix4();
 	// Draw koordinatsystemet
 	coord(renderInfo, camera, modelMatrix);

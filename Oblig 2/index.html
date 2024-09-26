@@ -108,6 +108,57 @@
         }
     </script>
 
+    <!-- PHONG SHADER som håndterer diffust punktlys. -->
+    <script id="diffuse-pointlight-phong-vertex-shader" type="x-shader/x-vertex">
+        attribute vec3 aVertexPosition;
+        attribute vec3 aVertexNormal;    //Normalvektor.
+
+        uniform mat4 uModelMatrix;	   //model/world-matrisa brukes til lyskalk.
+        uniform mat4 uModelViewMatrix;
+        uniform mat4 uProjectionMatrix;
+
+        varying vec3 vVertexNormal;
+        varying vec3 vVertexPositionInWorldCoords;
+
+        void main() {
+            //Transformer til world-koordinater:
+            vec4 vertexPositionInWorldCoords = uModelMatrix * vec4(aVertexPosition, 1.0);
+            vVertexPositionInWorldCoords = vec3(vertexPositionInWorldCoords);
+            vVertexNormal = aVertexNormal;
+            //Transformer vertex:
+            gl_Position = uProjectionMatrix * uModelViewMatrix * vec4(aVertexPosition, 1.0);
+        }
+    </script>
+    <script id="diffuse-pointlight-phong-fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+
+        uniform mat3 uNormalMatrix;    //Transformerer normalvektoren vha. denne.
+        uniform vec3 uLightPosition;    //Lysets posisjon.
+        uniform vec3 uAmbientLightColor;
+        uniform vec3 uDiffuseLightColor;
+
+        varying vec3 vVertexNormal;
+        varying vec3 vVertexPositionInWorldCoords;
+        void main() {
+
+            //Beregn vektoren fra denne verteksen til lyskilden:
+            vec3 vectorToLightSource = normalize(uLightPosition - vVertexPositionInWorldCoords);
+
+            //Transformer normalvektoren til world-koordinater:
+            vec3 normal = normalize(uNormalMatrix * vVertexNormal);
+
+            //Beregn prikkprodukt av lysvektor og normalvektor
+            //for diffus belysning:
+            float diffusLightWeightning = max(dot(normal, vectorToLightSource), 0.0);
+
+            //Summer alle refleksjonskomponenter og send til fragmentshader:
+            vec3 lightWeighting = uAmbientLightColor + (uDiffuseLightColor * diffusLightWeightning);
+
+            gl_FragColor = vec4(lightWeighting.rgb, 1.0);
+        }
+    </script>
+
+
     <script type="module" >
 	    //Bruker strict-mode, betyr bl.a. at variabler må deklareres før bruk, se https://www.w3schools.com/js/js_strict.asp
 	    'use strict';
