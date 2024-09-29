@@ -164,7 +164,7 @@
             //Summer alle refleksjonskomponenter og send til fragmentshader:
             vec3 lightWeighting = uAmbientLightColor + (uDiffuseLightColor * diffusLightWeightning);
 
-            gl_FragColor = vColor * vec4(lightWeighting.rgb, 1.0) + texture2D(uSampler, vec2(vTextureCoordinate.s, vTextureCoordinate.t));
+            gl_FragColor = vec4(lightWeighting.rgb, 0.1 ) + vColor * texture2D(uSampler, vec2(vTextureCoordinate.s, vTextureCoordinate.t));
         }
     </script>
 
